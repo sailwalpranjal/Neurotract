@@ -1,0 +1,66 @@
+name: neurotract
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Core Python
+  - python=3.11.*
+
+  # Core scientific computing
+  - numpy>=1.24.0,<2.0
+  - scipy>=1.10.0
+  - pandas>=2.0.0
+
+  # Neuroimaging core
+  - nibabel>=5.0.0
+  - dipy>=1.7.0
+
+  # Machine learning
+  - scikit-learn>=1.3.0
+
+  # Graph and network analysis
+  - networkx>=3.0
+  - python-igraph>=0.10.0
+  - leidenalg>=0.10.0
+
+  # Visualization
+  - matplotlib>=3.7.0
+  - plotly>=5.14.0
+
+  # 3D geometry and visualization
+  - trimesh>=4.0.0
+  - pyvista>=0.40.0
+
+  # Data I/O
+  - h5py>=3.8.0
+  - pillow>=10.0.0
+
+  # Performance
+  - numba>=0.57.0
+  - joblib>=1.3.0
+  - psutil>=5.9.0
+
+  # Web framework
+  - fastapi>=0.100.0
+  - uvicorn>=0.23.0
+  - pydantic>=2.0.0
+
+  # Testing
+  - pytest>=7.4.0
+  - pytest-cov>=4.1.0
+  - pytest-timeout>=2.1.0
+
+  # Development tools
+  - black>=23.0.0
+  - flake8>=6.0.0
+  - mypy>=1.4.0
+
+  # Additional tools via pip
+  - pip
+  - pip:
+    - fury>=0.9.0  # Advanced 3D visualization for tractography
+    - vtk>=9.2.0  # VTK for advanced rendering
+    - pyvistaqt>=0.11.0  # Qt integration for PyVista
+    - nilearn>=0.10.0  # Neuroimaging statistics
+    - bids>=0.0  # BIDS dataset handling
+    - pytest-xdist>=3.3.0  # Parallel testing

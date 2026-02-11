@@ -1,0 +1,38 @@
+NEUROTRACT - WORKING COMMANDS
+==============================
+
+STEP 1: PREPROCESSING
+python -m src.backend.cli preprocess --input "datasets/Stanford dataset/SUB1_b1000_1.nii.gz" --bvals "datasets/Stanford dataset/SUB1_b1000_1.bvals" --bvecs "datasets/Stanford dataset/SUB1_b1000_1.bvecs" --output "output/SUB1/preprocessed" --no-motion-correction
+
+STEP 2: DTI
+python -m src.backend.cli dti --input "output/SUB1/preprocessed/preprocessed_dwi.nii.gz" --bvals "output/SUB1/preprocessed/preprocessed_dwi.bval" --bvecs "output/SUB1/preprocessed/preprocessed_dwi.bvec" --mask "output/SUB1/preprocessed/preprocessed_brain_mask.nii.gz" --output "output/SUB1/dti"
+
+STEP 3: FOD
+python -m src.backend.cli csd --input "output/SUB1/preprocessed/preprocessed_dwi.nii.gz" --bvals "output/SUB1/preprocessed/preprocessed_dwi.bval" --bvecs "output/SUB1/preprocessed/preprocessed_dwi.bvec" --mask "output/SUB1/preprocessed/preprocessed_brain_mask.nii.gz" --output "output/SUB1/fod.nii.gz"
+
+STEP 4: TRACTOGRAPHY
+python -m src.backend.cli tractography --fod "output/SUB1/fod.nii.gz" --mask "output/SUB1/preprocessed/preprocessed_brain_mask.nii.gz" --fa-map "output/SUB1/dti/dti_fa.nii.gz" --seeds-per-voxel 2 --step-size 0.5 --max-angle 30 --output "output/SUB1/streamlines.trk"
+
+STEP 5: CONNECTOME
+python -m src.backend.cli connectome --streamlines "output/SUB1/streamlines.trk" --parcellation "datasets/Stanford dataset/SUB1_aparc-reduced.nii.gz" --weighting count --output "output/SUB1/connectome.npy"
+
+STEP 6: METRICS
+python -m src.backend.cli metrics --connectome "output/SUB1/connectome.npy" --output "output/SUB1/metrics.json"
+
+STEP 7: VIEW RESULTS
+python -c "import json; print(json.dumps(json.load(open('output/SUB1/metrics.json')), indent=2))"
+
+WEB INTERFACE
+=============
+# Start API server (requires venv activated)
+python -m uvicorn src.backend.api.server:app --host 0.0.0.0 --port 8000
+
+# Start frontend (in separate terminal)
+cd src/frontend
+npm install
+npm run dev
+
+# Open http://localhost:3000 in browser
+# Home page shows processed results - click "Load" to select subject
+# Navigate to "3D Viewer" for interactive streamline visualization
+# Navigate to "Analysis" for connectome metrics and charts

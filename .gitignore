@@ -1,0 +1,136 @@
+# NeuroTract .gitignore
+# Prevent large datasets and temporary files from being committed
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Data files - CRITICAL: Do not commit large datasets
+datasets/*
+!datasets/README.md
+!datasets/.gitkeep
+*.nii
+*.nii.gz
+*.dcm
+*.DICOM
+*.bval
+*.bvec
+*.trk
+*.tck
+
+# HDF5 and large binary files
+*.h5
+*.hdf5
+*.h5py
+*.npy
+*.npz
+
+# Temporary and processed files
+temp/
+tmp/
+*.tmp
+*.cache
+.cache/
+
+# Model files
+*.pth
+*.pt
+*.ckpt
+*.pkl
+*.joblib
+
+# Node.js
+node_modules/
+.next/
+out/
+
+# Uploads & runtime data
+uploads/
+jobs_database.json
+
+# Logs and reports
+*.log
+logs/*
+!logs/.gitkeep
+*.out
+*.err
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Performance profiling
+*.prof
+*.lprof
+
+# Large output files
+output/*
+!output/.gitkeep
+results/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+!docs/assets/*.png
+!docs/assets/*.jpg
+
+# Environment variables
+.env
+.env.local
+!src/frontend/.env.local
+
+# Checkpoints
+checkpoints/
+*.ckpt
+
+# Keep empty directories
+!**/.gitkeep
