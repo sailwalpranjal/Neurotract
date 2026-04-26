@@ -14,7 +14,7 @@ export default function Notifications() {
         <NotificationItem
           key={notif.id}
           notification={notif}
-          onDismiss={() => removeNotification(notif.id)}
+          onDismiss={() => notif.id && removeNotification(notif.id)}
         />
       ))}
     </div>

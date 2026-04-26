@@ -126,7 +126,7 @@ export default function Home() {
             <h2 className="text-2xl font-semibold mb-2">Processed Results</h2>
             <p className="text-gray-400 text-sm mb-4">Pre-computed pipeline results ready to view</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {availableResults.map((result) => (
+              {availableResults.map((result: ProcessedResult) => (
                 <ResultCard
                   key={result.subject_id}
                   result={result}
@@ -252,7 +252,7 @@ function StatItem({ value, label }: { value: number; label: string }) {
 function ResultCard({ result, isActive, onLoad }: { result: ProcessedResult; isActive: boolean; onLoad: () => void }) {
   const stats = result.streamline_stats?.bundle_statistics;
   const connInfo = result.connectome_info;
-  const totalSize = result.files.reduce((sum, f) => sum + f.size_bytes, 0);
+  const totalSize = result.files?.reduce((sum, f) => sum + f.size_bytes, 0) ?? 0;
 
   return (
     <div className={`rounded-xl p-4 transition-all ${
@@ -272,7 +272,7 @@ function ResultCard({ result, isActive, onLoad }: { result: ProcessedResult; isA
             {result.has_fod && <Badge label="FOD" color="pink" />}
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-400">
-            {stats && <span>{stats.n_streamlines.toLocaleString()} streamlines</span>}
+            {stats?.n_streamlines !== undefined && <span>{stats.n_streamlines.toLocaleString()} streamlines</span>}
             {connInfo && <span>{connInfo.n_parcels} regions</span>}
             <span>{formatFileSize(totalSize)}</span>
           </div>

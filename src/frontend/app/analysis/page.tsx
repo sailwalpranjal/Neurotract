@@ -361,7 +361,7 @@ function ExportButton({ label, filename, subject, addNotification, setError }: {
     try {
       addNotification({ type: 'loading', title: 'Downloading', message: `Preparing ${filename}...`, duration: 3000 });
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/results/${subject}/download/${filename}`
+        `${process.env.NEXT_PUBLIC_API_URL || '/api'}/results/${subject}/download/${filename}`
       );
       if (!response.ok) throw new Error('Download failed');
       const blob = await response.blob();

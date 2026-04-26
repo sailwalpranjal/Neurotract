@@ -20,6 +20,7 @@ export default function BrainHealthSummary({ metrics }: BrainHealthSummaryProps)
   const nCommunities = metrics.communities?.louvain_partition
     ? new Set(metrics.communities.louvain_partition).size
     : 0;
+  const smallWorldness = metrics.global.small_worldness ?? 0;
 
   // Build health indicators
   const indicators: HealthIndicator[] = [
@@ -60,8 +61,8 @@ export default function BrainHealthSummary({ metrics }: BrainHealthSummaryProps)
     {
       label: 'Network Balance',
       description: 'Does your brain balance local and global processing?',
-      status: g.small_worldness > 1.0 ? 'good' : 'attention',
-      detail: g.small_worldness > 1.0
+      status: smallWorldness > 1.0 ? 'good' : 'attention',
+      detail: smallWorldness > 1.0
         ? 'Your brain has "small-world" organization — it efficiently balances local specialized processing with global communication. This is the hallmark of a well-organized brain.'
         : 'The balance between local and global processing could be improved.',
     },

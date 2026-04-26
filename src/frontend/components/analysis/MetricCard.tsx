@@ -7,14 +7,14 @@ import { interpretMetric, getMetricDescription } from '@/lib/interpretations';
 interface MetricCardProps {
   label: string;
   metricKey: string;
-  value: number;
+  value?: number;
 }
 
 export default function MetricCard({ label, metricKey, value }: MetricCardProps) {
   const { userType } = useAppStore();
   const [showTooltip, setShowTooltip] = useState(false);
 
-  const interpretation = interpretMetric(metricKey, value, userType);
+  const interpretation = interpretMetric(metricKey, value ?? 0, userType);
   const description = getMetricDescription(metricKey, userType);
 
   const statusColors = {

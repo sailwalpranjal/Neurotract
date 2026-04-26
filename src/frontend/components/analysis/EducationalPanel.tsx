@@ -250,7 +250,7 @@ export default function EducationalPanel({ metrics, labels }: EducationalPanelPr
             />
             <ComparisonCard
               metric="Small-World Index"
-              actual={metrics.global.small_worldness}
+              actual={metrics.global.small_worldness ?? 0}
               random={1.0}
               explanation="Values >1 confirm small-world: high clustering without sacrificing path efficiency."
             />
