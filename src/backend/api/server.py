@@ -122,6 +122,13 @@ class SensitivityParams(BaseModel):
     thresholds: Optional[List[float]] = [0, 1, 2, 5, 10]
 
 
+class DatasetValidationParams(BaseModel):
+    """Parameters for dataset boundary validation request"""
+    dwi_path: str
+    bval_path: Optional[str] = None
+    bvec_path: Optional[str] = None
+
+
 def _job_to_frontend(j: dict) -> dict:
     """Convert internal job dict to frontend-expected format."""
     return {
@@ -218,19 +225,44 @@ async def upload_file(file: UploadFile = File(...)):
     }
 
 
-@app.get("/api/datasets/validate")
+def _resolve_dataset_paths(dwi: str, bval: Optional[str] = None, bvec: Optional[str] = None):
+    """Resolve DWI dataset paths with intelligent fallbacks for standard subject IDs."""
+    dwi_p = Path(dwi)
+    if not dwi_p.exists():
+        if "SUB1" in dwi or "sub1" in dwi.lower():
+            cand = Path("datasets/Stanford dataset/SUB1_b1000_1.nii.gz")
+            if cand.exists():
+                dwi_p = cand
+                bval = str(Path("datasets/Stanford dataset/SUB1_b1000_1.bvals"))
+                bvec = str(Path("datasets/Stanford dataset/SUB1_b1000_1.bvecs"))
+        elif "SUB2" in dwi or "sub2" in dwi.lower():
+            cand = Path("datasets/Stanford dataset/SUB2_b1000_1.nii.gz")
+            if cand.exists():
+                dwi_p = cand
+                bval = str(Path("datasets/Stanford dataset/SUB2_b1000_1.bvals"))
+                bvec = str(Path("datasets/Stanford dataset/SUB2_b1000_1.bvecs"))
+    return str(dwi_p), bval, bvec
+
+
 @app.post("/api/datasets/validate")
-async def validate_dataset_endpoint(
+async def validate_dataset_post(params: DatasetValidationParams):
+    """Strict boundary validation of a diffusion MRI dataset via POST."""
+    dwi, bval, bvec = _resolve_dataset_paths(params.dwi_path, params.bval_path, params.bvec_path)
+    validator = DatasetValidator()
+    report = validator.validate_dwi_dataset(dwi, bval, bvec)
+    return report.to_dict()
+
+
+@app.get("/api/datasets/validate")
+async def validate_dataset_get(
     dwi_path: str = Query(..., description="Path to DWI NIfTI file"),
     bval_path: Optional[str] = Query(None, description="Optional path to .bval file"),
     bvec_path: Optional[str] = Query(None, description="Optional path to .bvec file")
 ):
-    """
-    Strict boundary validation of a diffusion MRI dataset.
-    Returns authoritative DatasetValidationReport.
-    """
+    """Strict boundary validation of a diffusion MRI dataset via GET."""
+    dwi, bval, bvec = _resolve_dataset_paths(dwi_path, bval_path, bvec_path)
     validator = DatasetValidator()
-    report = validator.validate_dwi_dataset(dwi_path, bval_path, bvec_path)
+    report = validator.validate_dwi_dataset(dwi, bval, bvec)
     return report.to_dict()
 
 

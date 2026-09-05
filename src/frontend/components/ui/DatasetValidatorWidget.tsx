@@ -18,9 +18,9 @@ export default function DatasetValidatorWidget() {
     setValidating(true);
     setError(null);
 
-    const dwiPath = `datasets/Stanford dataset/${selectedPreset}/dwi.nii.gz`;
-    const bvalPath = `datasets/Stanford dataset/${selectedPreset}/dwi.bval`;
-    const bvecPath = `datasets/Stanford dataset/${selectedPreset}/dwi.bvec`;
+    const dwiPath = `datasets/Stanford dataset/${selectedPreset}_b1000_1.nii.gz`;
+    const bvalPath = `datasets/Stanford dataset/${selectedPreset}_b1000_1.bvals`;
+    const bvecPath = `datasets/Stanford dataset/${selectedPreset}_b1000_1.bvecs`;
 
     try {
       const rep = await apiClient.validateDataset({

@@ -36,8 +36,26 @@ class APIClient {
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
+        let message = 'An error occurred';
+        const rawDetail = error.response?.data?.detail;
+        if (typeof rawDetail === 'string') {
+          message = rawDetail;
+        } else if (Array.isArray(rawDetail)) {
+          message = rawDetail
+            .map((item: any) =>
+              typeof item === 'object' && item?.msg
+                ? `${item.loc?.filter((l: any) => l !== 'body').join('.') || 'parameter'}: ${item.msg}`
+                : String(item)
+            )
+            .join('; ');
+        } else if (typeof rawDetail === 'object' && rawDetail !== null) {
+          message = rawDetail.message || JSON.stringify(rawDetail);
+        } else if (error.message) {
+          message = error.message;
+        }
+
         const apiError: APIError = {
-          message: error.response?.data?.detail || error.message || 'An error occurred',
+          message,
           code: error.response?.status?.toString() || 'UNKNOWN',
           details: error.response?.data,
         };
