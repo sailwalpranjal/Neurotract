@@ -6,6 +6,7 @@ import Sidebar from '@/components/ui/Sidebar';
 import { useAppStore } from '@/lib/store';
 import { apiClient } from '@/lib/api';
 import { Streamline } from '@/lib/types';
+import OrthogonalSliceViewer from '@/components/viewer/OrthogonalSliceViewer';
 
 // Dynamic import to avoid SSR issues with Three.js
 const BrainViewer = dynamic(() => import('@/components/viewer/BrainViewer'), {
@@ -32,6 +33,7 @@ export default function ViewerPage() {
   } = useAppStore();
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingData, setLoadingData] = useState(false);
+  const [viewportLayout, setViewportLayout] = useState<'split' | '3d' | '2d'>('split');
 
   // Auto-load data when page mounts or subject changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -136,7 +138,41 @@ export default function ViewerPage() {
           sidebarOpen ? 'ml-80' : 'ml-0'
         }`}
       >
-        <div className="w-full h-full relative">
+        <div className="w-full h-full relative overflow-hidden flex flex-col">
+          {/* Viewport Layout Mode Selector */}
+          <div className="absolute top-4 right-4 z-30 flex items-center bg-neutral-900/90 backdrop-blur-md border border-neutral-700/80 rounded-xl p-1 shadow-xl text-xs">
+            <button
+              onClick={() => setViewportLayout('3d')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                viewportLayout === '3d'
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              3D Only
+            </button>
+            <button
+              onClick={() => setViewportLayout('split')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                viewportLayout === 'split'
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              Split MPR (3D + 2D)
+            </button>
+            <button
+              onClick={() => setViewportLayout('2d')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                viewportLayout === '2d'
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              2D Slices Only
+            </button>
+          </div>
+
           {/* Loading overlay */}
           {loadingData && (
             <div className="absolute inset-0 z-20 bg-black/50 flex items-center justify-center backdrop-blur-sm">
@@ -167,18 +203,41 @@ export default function ViewerPage() {
               </div>
             </div>
           ) : (
-            <Suspense
-              fallback={
-                <div className="w-full h-full flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="spinner mx-auto mb-4" />
-                    <p className="text-gray-300">Loading 3D Viewer...</p>
+            <>
+              {/* 3D Viewer Canvas */}
+              {viewportLayout !== '2d' && (
+                <div className="w-full h-full relative flex-1">
+                  <Suspense
+                    fallback={
+                      <div className="w-full h-full flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="spinner mx-auto mb-4" />
+                          <p className="text-gray-300">Loading 3D Viewer...</p>
+                        </div>
+                      </div>
+                    }
+                  >
+                    <BrainViewer onError={setLoadError} />
+                  </Suspense>
+                </div>
+              )}
+
+              {/* 2D Orthogonal Slice Viewer: Docked at bottom for Split Mode */}
+              {viewportLayout === 'split' && (
+                <div className="absolute bottom-4 left-4 right-4 z-20 max-h-[46vh] overflow-y-auto">
+                  <OrthogonalSliceViewer subjectId={activeSubject || 'SUB1'} />
+                </div>
+              )}
+
+              {/* 2D Orthogonal Slice Viewer: Full Page Mode */}
+              {viewportLayout === '2d' && (
+                <div className="w-full h-full p-6 overflow-y-auto">
+                  <div className="max-w-6xl mx-auto pt-10">
+                    <OrthogonalSliceViewer subjectId={activeSubject || 'SUB1'} isCollapsible={false} />
                   </div>
                 </div>
-              }
-            >
-              <BrainViewer onError={setLoadError} />
-            </Suspense>
+              )}
+            </>
           )}
         </div>
       </div>

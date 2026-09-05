@@ -9,7 +9,10 @@ import { GraphMetrics, ParcellationLabel } from '@/lib/types';
 import { generateSummary } from '@/lib/interpretations';
 import MetricCard from '@/components/analysis/MetricCard';
 import UserTypeSelector from '@/components/ui/UserTypeSelector';
-import BrainHealthSummary from '@/components/analysis/BrainHealthSummary';
+import ConnectomeOverview from '@/components/analysis/ConnectomeOverview';
+import ValidationCenter from '@/components/analysis/ValidationCenter';
+import SensitivityLab from '@/components/analysis/SensitivityLab';
+import ProvenanceInspector from '@/components/analysis/ProvenanceInspector';
 
 const GraphMetricsChart = dynamic(() => import('@/components/charts/GraphMetrics'), { ssr: false });
 const ConnectomeMatrix = dynamic(() => import('@/components/charts/ConnectomeMatrix'), { ssr: false });
@@ -39,6 +42,7 @@ export default function AnalysisPage() {
   const [labels, setLabels] = useState<ParcellationLabel[]>(parcellationLabels);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'topology' | 'validation' | 'sensitivity'>('topology');
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -160,6 +164,40 @@ export default function AnalysisPage() {
           <UserTypeSelector compact />
         </div>
 
+        {/* Laboratory Tabs */}
+        <div className="flex border-b border-neutral-800 gap-2 pb-1 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('topology')}
+            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
+              activeTab === 'topology'
+                ? 'border-primary-500 text-primary-400 bg-primary-500/10'
+                : 'border-transparent text-neutral-400 hover:text-white'
+            }`}
+          >
+            Structural Connectome &amp; Topology
+          </button>
+          <button
+            onClick={() => setActiveTab('validation')}
+            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
+              activeTab === 'validation'
+                ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
+                : 'border-transparent text-neutral-400 hover:text-white'
+            }`}
+          >
+            Reference Validation (DIPY / NetworkX)
+          </button>
+          <button
+            onClick={() => setActiveTab('sensitivity')}
+            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
+              activeTab === 'sensitivity'
+                ? 'border-indigo-500 text-indigo-400 bg-indigo-500/10'
+                : 'border-transparent text-neutral-400 hover:text-white'
+            }`}
+          >
+            Parameter Sensitivity Lab
+          </button>
+        </div>
+
         {/* Loading */}
         {loading && (
           <div className="flex justify-center py-12">
@@ -181,14 +219,20 @@ export default function AnalysisPage() {
           </div>
         )}
 
-        {metrics && (
+        {activeTab === 'validation' && (
+          <ValidationCenter subjectId={activeSubject || 'SUB1'} />
+        )}
+
+        {activeTab === 'sensitivity' && (
+          <SensitivityLab subjectId={activeSubject || 'SUB1'} />
+        )}
+
+        {activeTab === 'topology' && metrics && (
           <>
             {/* ==========================================
-                GENERAL USER: Simplified Brain Health View
+                CONNECTOME OVERVIEW & SCIENTIFIC TRANSPARENCY
                 ========================================== */}
-            {userType === 'general' && (
-              <BrainHealthSummary metrics={metrics} />
-            )}
+            <ConnectomeOverview metrics={metrics} />
 
             {/* ==========================================
                 ALL USERS: Summary (adapted text per type)
@@ -328,8 +372,9 @@ export default function AnalysisPage() {
             ========================================== */}
         {(metrics || connectome) && activeSubject && (
           <div className="glass rounded-xl p-6">
-            <h2 className="text-xl font-semibold mb-4">Export Results</h2>
+            <h2 className="text-xl font-semibold mb-4">Export Results &amp; Reproducible Report</h2>
             <div className="flex flex-wrap gap-3">
+              <ExportReportButton subject={activeSubject} addNotification={addNotification} />
               <ExportButton label="Metrics (JSON)" filename="metrics.json" subject={activeSubject} addNotification={addNotification} setError={setError} />
               {userType !== 'general' && (
                 <>
@@ -345,8 +390,36 @@ export default function AnalysisPage() {
             )}
           </div>
         )}
+
+        {/* Provenance Inspection Drawer/Modal */}
+        <ProvenanceInspector />
       </div>
     </div>
+  );
+}
+
+function ExportReportButton({ subject, addNotification }: { subject: string; addNotification: any }) {
+  const handleExport = () => {
+    addNotification({
+      type: 'loading',
+      title: 'Preparing Report',
+      message: `Fetching standalone reproducible HTML report for ${subject}...`,
+      duration: 3000,
+    });
+    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/report/${subject}/export`;
+    window.open(url, '_blank');
+  };
+
+  return (
+    <button
+      onClick={handleExport}
+      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-1.5 shadow-md shadow-emerald-950/40"
+    >
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+      Reproducible HTML Report
+    </button>
   );
 }
 

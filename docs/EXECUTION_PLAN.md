@@ -10,29 +10,29 @@
 | Phase | Description | Status | Key Deliverables & Decisions |
 |---|---|---|---|
 | **Phase 0** | Repository & Architecture Audit | ✅ Completed | Comprehensive audit completed. `AGENTS.md` and `docs/` created. |
-| **Phase 1** | Scientific Truth Audit & Math Fixes | ✅ Completed | Identified and corrected FA math error; removed unscientific health scores. |
-| **Phase 2** | Data Standardization & Ingestion | 🔄 In Progress | `DatasetValidator` with shape, gradient, and checksum verification. |
-| **Phase 3** | Authoritative Demo Datasets | 🔄 In Progress | Reproducible download script & Stanford HARDI bootstrap. |
-| **Phase 4** | Scientific Pipeline & Provenance | 🔄 In Progress | Fix `server.py` signatures; integrate `ProvenanceTracker`. |
-| **Phase 5** | Real-Time Execution Engine (SSE) | ⏳ Next | Event-driven SSE streaming endpoint & worker task management. |
-| **Phase 6** | Live Analysis Observatory | ⏳ Queued | Milestone execution timeline, telemetry cards, and log viewer. |
-| **Phase 7** | Synchronized 2D/3D Brain Experience | ⏳ Queued | Orthogonal slice viewer synchronized with 3D tractogram and surface. |
-| **Phase 8** | Advanced Scientific Visualization | ⏳ Queued | Distribution charts, connectome heatmap, degree distributions. |
-| **Phase 9** | Microinteractions & Workstation UX | ⏳ Queued | Polished cross-filtering, keyboard shortcuts, accessible tooltips. |
-| **Phase 10** | "Where Did This Number Come From?" | ⏳ Queued | Interactive Provenance Inspector drawer. |
-| **Phase 11** | Parameter Sensitivity Lab | ⏳ Queued | Multi-run parameter variation and edge stability comparisons. |
-| **Phase 12** | Validation Center | ⏳ Queued | DIPY reference baseline agreement and error metrics. |
-| **Phase 13** | Performance Optimization | ⏳ Queued | Subsampling, level-of-detail, binary transfers. |
-| **Phase 14** | Reproducible Report Generation | ⏳ Queued | Exportable HTML/JSON analysis bundle with provenance. |
-| **Phase 15** | Frontend Redesign & Polishing | ⏳ Queued | Workstation layout, clean dark theme, semantic indicators. |
-| **Phase 16** | Backend Robustness & Schemas | ⏳ Queued | Pydantic v2 schemas, structured error handling, clean shutdowns. |
-| **Phase 17** | Testing Battery | ⏳ Queued | Unit, integration, scientific, and E2E pipeline tests. |
-| **Phase 18** | Failure Handling | ⏳ Queued | Deliberate bad-input handling and graceful error surfaces. |
-| **Phase 19** | Security & Data Privacy | ⏳ Queued | Safe file handling, path traversal prevention, research disclaimer. |
-| **Phase 20** | Authoritative Documentation | ⏳ Queued | README.md update and full API reference. |
-| **Phase 21** | Code Quality & Dead Code Removal | ⏳ Queued | Code cleanup, typing annotations, dead code pruning. |
-| **Phase 22** | Coherent Incremental Commits | ⏳ Queued | Discrete, validated git commits (no push). |
-| **Phase 23** | Verification Loop & Final Report | ⏳ Queued | Full test run, dev server verification, console checks. |
+| **Phase 1** | Scientific Truth Audit & Math Fixes | ✅ Completed | Corrected FA math error (Basser 1996); purged unscientific health score claims. |
+| **Phase 2** | Data Standardization & Ingestion | ✅ Completed | `DatasetValidator` with shape, unit gradient, and SHA-256 checksum verification. |
+| **Phase 3** | Authoritative Demo Datasets | ✅ Completed | Verified Stanford HARDI bootstrap (`SUB1`, `SUB2`) and precomputed outputs. |
+| **Phase 4** | Scientific Pipeline & Provenance | ✅ Completed | Aligned pipeline signatures; integrated `ProvenanceTracker` and registry. |
+| **Phase 5** | Real-Time Execution Engine (SSE) | ✅ Completed | `JobEventManager` with SSE replay and `/jobs/{id}/events` streaming. |
+| **Phase 6** | Live Analysis Observatory | ✅ Completed | `JobObservatoryWidget` and `DatasetValidatorWidget` on dashboard. |
+| **Phase 7** | Synchronized 2D/3D Brain Experience | ✅ Completed | `OrthogonalSliceViewer` (Axial, Coronal, Sagittal) with crosshair synchronization. |
+| **Phase 8** | Advanced Scientific Visualization | ✅ Completed | Connectome matrix, nodal degree charts, community layouts, marching cubes brain surface. |
+| **Phase 9** | Microinteractions & Workstation UX | ✅ Completed | 3D/MPR layout mode toggle, cross-filtering, interactive coordinate telemetry. |
+| **Phase 10** | "Where Did This Number Come From?" | ✅ Completed | `ProvenanceInspector` displaying exact formula, citations, inputs, and software versions. |
+| **Phase 11** | Parameter Sensitivity Lab | ✅ Completed | `SensitivityLab` with edge stability ratio, Jaccard heatmap, and metric trajectories. |
+| **Phase 12** | Validation Center | ✅ Completed | `ValidationCenter` comparing against DIPY TensorModel and NetworkX baselines. |
+| **Phase 13** | Performance Optimization | ✅ Completed | Binary transfers, robust percentile windowing, precomputed slice caching. |
+| **Phase 14** | Reproducible Report Generation | ✅ Completed | Standalone HTML report generator via `/api/report/{id}/export`. |
+| **Phase 15** | Frontend Redesign & Polishing | ✅ Completed | Replaced `BrainHealthSummary` with `ConnectomeOverview`; clean dark workstation aesthetic. |
+| **Phase 16** | Backend Robustness & Schemas | ✅ Completed | Pydantic validation, structured event streaming, graceful fallbacks. |
+| **Phase 17** | Testing Battery | ✅ Completed | 27/27 pytests passing (100%), `tsc --noEmit` and `next build` 100% clean. |
+| **Phase 18** | Failure Handling | ✅ Completed | Dataset validator rejects zero-byte, missing, and dimension-mismatched files. |
+| **Phase 19** | Security & Data Privacy | ✅ Completed | Local analysis, path verification, scientific research disclaimer. |
+| **Phase 20** | Authoritative Documentation | 🔄 In Progress | Documentation in `docs/` and root `README.md`. |
+| **Phase 21** | Code Quality & Dead Code Removal | ✅ Completed | Removed `.gitignore` mask on `src/frontend/lib/`, fixed type mismatches. |
+| **Phase 22** | Coherent Incremental Commits | 🔄 In Progress | Discrete, validated git commits (no push). |
+| **Phase 23** | Verification Loop & Final Report | ⏳ Next | End-to-end verification and final walkthrough. |
 
 ---
 

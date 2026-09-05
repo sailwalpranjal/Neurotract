@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import FileUpload from '@/components/ui/FileUpload';
 import UserTypeSelector from '@/components/ui/UserTypeSelector';
+import DatasetValidatorWidget from '@/components/ui/DatasetValidatorWidget';
+import JobObservatoryWidget from '@/components/ui/JobObservatoryWidget';
 import { useAppStore } from '@/lib/store';
 import { apiClient } from '@/lib/api';
 import { ProcessedResult } from '@/lib/types';
@@ -62,16 +64,19 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-primary-900/20 to-transparent" />
         <div className="relative max-w-4xl mx-auto">
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-4">
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary-400 via-cyan-400 to-primary-600">
-              NeuroTract
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary-400 via-cyan-400 to-emerald-400">
+              NeuroTract 2.0
             </span>
           </h1>
-          <p className="text-lg md:text-xl text-gray-300 mb-2 max-w-2xl mx-auto">
-            Brain White Matter Tractography & Connectivity Analysis
+          <p className="text-lg md:text-xl text-gray-200 mb-2 max-w-3xl mx-auto font-medium">
+            Interactive Diffusion-MRI Analysis Laboratory &amp; Tractography Observatory
           </p>
-          <p className="text-sm md:text-base text-gray-500 mb-8 max-w-xl mx-auto">
-            Analyze diffusion MRI data with automated tractography, connectome construction, and graph-theoretic network analysis
+          <p className="text-sm md:text-base text-gray-400 mb-6 max-w-2xl mx-auto leading-relaxed">
+            Reconstruct white matter streamlines, compute structural connectomes, stream real-time execution, and verify computations against authoritative DIPY and NetworkX baselines.
           </p>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary-950/60 border border-primary-500/30 text-xs text-primary-300 font-mono mb-8">
+            <span>🔬 Strict Mathematical Provenance &amp; Numerical Concordance Verification</span>
+          </div>
 
           {/* Server Status */}
           <div className="flex justify-center mb-8">
@@ -143,18 +148,28 @@ export default function Home() {
           <section className="glass rounded-xl p-6 border border-primary-500/30 bg-primary-900/10">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-3 h-3 bg-primary-400 rounded-full animate-pulse-glow" />
-              <h3 className="text-lg font-semibold">Active: {activeSubject}</h3>
+              <h3 className="text-lg font-semibold">Active Subject: {activeSubject}</h3>
             </div>
             <div className="flex flex-wrap gap-3">
               <Link href="/viewer" className="px-6 py-3 bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors font-medium">
-                Open 3D Viewer
+                Open 3D / 2D Multi-Planar Viewer
               </Link>
               <Link href="/analysis" className="px-6 py-3 glass hover:bg-white/10 rounded-lg transition-colors font-medium">
-                View Analysis
+                View Connectome &amp; Validation Lab
               </Link>
             </div>
           </section>
         )}
+
+        {/* Dataset Boundary Validator */}
+        <section>
+          <DatasetValidatorWidget />
+        </section>
+
+        {/* Real-time Execution Observatory */}
+        <section>
+          <JobObservatoryWidget />
+        </section>
 
         {/* Pipeline Overview */}
         <section>
@@ -203,8 +218,8 @@ export default function Home() {
 
         {/* Supported Formats */}
         <div className="text-center text-sm text-gray-500 pb-4">
-          <p>Supported formats: NIfTI (.nii, .nii.gz), DICOM, TRK, TCK</p>
-          <p className="mt-1 text-xs text-gray-600">NeuroTract v0.1.0</p>
+          <p>Supported formats: NIfTI (.nii, .nii.gz), BVAL/BVEC, TRK, TCK</p>
+          <p className="mt-1 text-xs text-gray-400 font-mono">NeuroTract 2.0.0 Scientific Laboratory (DIPY 1.11.0, NetworkX 3.6.1)</p>
         </div>
 
         {/* Loading */}
