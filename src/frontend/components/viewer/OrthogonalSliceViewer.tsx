@@ -29,6 +29,7 @@ export default function OrthogonalSliceViewer({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [hoverCoord, setHoverCoord] = useState<{ x: number; y: number; z: number; plane: string } | null>(null);
 
   // Default coordinate if null
   const currentCoord = sliceIndices || {
@@ -134,6 +135,43 @@ export default function OrthogonalSliceViewer({
     fetchSlices(nextCoord);
   };
 
+  const handleAxialHover = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    const normX = Math.max(0, Math.min(1, clickX / rect.width));
+    const normY = Math.max(0, Math.min(1, clickY / rect.height));
+    const hX = Math.round(normX * (dims[0] - 1));
+    const hY = Math.round((1 - normY) * (dims[1] - 1));
+    setHoverCoord({ x: hX, y: hY, z: currentCoord.z, plane: 'Axial' });
+  };
+
+  const handleCoronalHover = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickZ = e.clientY - rect.top;
+    const normX = Math.max(0, Math.min(1, clickX / rect.width));
+    const normZ = Math.max(0, Math.min(1, clickZ / rect.height));
+    const hX = Math.round(normX * (dims[0] - 1));
+    const hZ = Math.round((1 - normZ) * (dims[2] - 1));
+    setHoverCoord({ x: hX, y: currentCoord.y, z: hZ, plane: 'Coronal' });
+  };
+
+  const handleSagittalHover = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickY = e.clientX - rect.left;
+    const clickZ = e.clientY - rect.top;
+    const normY = Math.max(0, Math.min(1, clickY / rect.width));
+    const normZ = Math.max(0, Math.min(1, clickZ / rect.height));
+    const hY = Math.round(normY * (dims[1] - 1));
+    const hZ = Math.round((1 - normZ) * (dims[2] - 1));
+    setHoverCoord({ x: currentCoord.x, y: hY, z: hZ, plane: 'Sagittal' });
+  };
+
+  const handleHoverLeave = () => {
+    setHoverCoord(null);
+  };
+
   return (
     <div className="bg-neutral-900/95 backdrop-blur-md border border-neutral-800 rounded-2xl p-4 text-gray-100 shadow-2xl transition-all">
       {/* Top Controls Bar */}
@@ -237,6 +275,8 @@ export default function OrthogonalSliceViewer({
               <div
                 className="relative aspect-square w-full bg-black cursor-crosshair overflow-hidden select-none"
                 onClick={handleAxialClick}
+                onMouseMove={handleAxialHover}
+                onMouseLeave={handleHoverLeave}
               >
                 {slicesData?.slices.axial.image ? (
                   <img
@@ -307,6 +347,8 @@ export default function OrthogonalSliceViewer({
               <div
                 className="relative aspect-square w-full bg-black cursor-crosshair overflow-hidden select-none"
                 onClick={handleCoronalClick}
+                onMouseMove={handleCoronalHover}
+                onMouseLeave={handleHoverLeave}
               >
                 {slicesData?.slices.coronal.image ? (
                   <img
@@ -377,6 +419,8 @@ export default function OrthogonalSliceViewer({
               <div
                 className="relative aspect-square w-full bg-black cursor-crosshair overflow-hidden select-none"
                 onClick={handleSagittalClick}
+                onMouseMove={handleSagittalHover}
+                onMouseLeave={handleHoverLeave}
               >
                 {slicesData?.slices.sagittal.image ? (
                   <img
@@ -436,17 +480,25 @@ export default function OrthogonalSliceViewer({
 
           {/* Coordinate & Physical Dimension Telemetry Bar */}
           <div className="flex flex-wrap items-center justify-between text-xs font-mono text-neutral-400 bg-neutral-950/80 px-4 py-2 rounded-xl border border-neutral-800/80 gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <span className="text-white font-semibold">
-                Voxel: [{currentCoord.x}, {currentCoord.y}, {currentCoord.z}]
+                Slice: [{currentCoord.x}, {currentCoord.y}, {currentCoord.z}]
               </span>
-              <span className="text-neutral-500">|</span>
+              <span className="text-neutral-600">|</span>
               <span className="text-primary-300">
-                Physical:{' '}
-                [{(currentCoord.x * voxelSize[0]).toFixed(1)},{' '}
+                Physical: [{(currentCoord.x * voxelSize[0]).toFixed(1)},{' '}
                 {(currentCoord.y * voxelSize[1]).toFixed(1)},{' '}
                 {(currentCoord.z * voxelSize[2]).toFixed(1)}] mm
               </span>
+              {hoverCoord && (
+                <>
+                  <span className="text-neutral-600">|</span>
+                  <span className="text-cyan-300 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/50">
+                    Pointer ({hoverCoord.plane}): [{hoverCoord.x}, {hoverCoord.y}, {hoverCoord.z}] (
+                    {(hoverCoord.x * voxelSize[0]).toFixed(1)}, {(hoverCoord.y * voxelSize[1]).toFixed(1)}, {(hoverCoord.z * voxelSize[2]).toFixed(1)} mm)
+                  </span>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-3 text-[11px] text-neutral-500">
               <span>Dim: {dims.join(' × ')}</span>

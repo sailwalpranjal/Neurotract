@@ -133,5 +133,10 @@ results/
 checkpoints/
 *.ckpt
 
+# Runtime logs & databases
+analysis_and_decisions/
+jobs_database.json
+
 # Keep empty directories
 !**/.gitkeep
+

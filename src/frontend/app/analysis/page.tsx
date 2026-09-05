@@ -20,6 +20,7 @@ const HubRegions = dynamic(() => import('@/components/charts/HubRegions'), { ssr
 const CommunityView = dynamic(() => import('@/components/charts/CommunityView'), { ssr: false });
 const AdvancedMetrics = dynamic(() => import('@/components/analysis/AdvancedMetrics'), { ssr: false });
 const EducationalPanel = dynamic(() => import('@/components/analysis/EducationalPanel'), { ssr: false });
+const RunComparisonView = dynamic(() => import('@/components/analysis/RunComparisonView'), { ssr: false });
 
 export default function AnalysisPage() {
   const {
@@ -42,7 +43,7 @@ export default function AnalysisPage() {
   const [labels, setLabels] = useState<ParcellationLabel[]>(parcellationLabels);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'topology' | 'validation' | 'sensitivity'>('topology');
+  const [activeTab, setActiveTab] = useState<'topology' | 'matrix' | 'comparison' | 'validation' | 'sensitivity'>('topology');
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -177,6 +178,26 @@ export default function AnalysisPage() {
             Structural Connectome &amp; Topology
           </button>
           <button
+            onClick={() => setActiveTab('matrix')}
+            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
+              activeTab === 'matrix'
+                ? 'border-cyan-500 text-cyan-400 bg-cyan-500/10'
+                : 'border-transparent text-neutral-400 hover:text-white'
+            }`}
+          >
+            Connectivity Matrix &amp; Network Hubs
+          </button>
+          <button
+            onClick={() => setActiveTab('comparison')}
+            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
+              activeTab === 'comparison'
+                ? 'border-amber-500 text-amber-400 bg-amber-500/10'
+                : 'border-transparent text-neutral-400 hover:text-white'
+            }`}
+          >
+            Run Comparison (A vs B)
+          </button>
+          <button
             onClick={() => setActiveTab('validation')}
             className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 whitespace-nowrap ${
               activeTab === 'validation'
@@ -225,6 +246,43 @@ export default function AnalysisPage() {
 
         {activeTab === 'sensitivity' && (
           <SensitivityLab subjectId={activeSubject || 'SUB1'} />
+        )}
+
+        {activeTab === 'comparison' && (
+          <RunComparisonView />
+        )}
+
+        {activeTab === 'matrix' && (
+          <div className="space-y-6">
+            <div className="glass rounded-xl p-6">
+              <h2 className="text-xl font-semibold mb-2">High-Density Connectivity Matrix &amp; Network Hubs</h2>
+              <p className="text-gray-400 text-sm mb-4">
+                Interactive 87×87 anatomical adjacency matrix with bidirectional 3D viewer synchronization, logarithmic density scaling, and real-time edge filtering.
+              </p>
+              {connectome ? (
+                <ConnectomeMatrix matrix={connectome} labels={labels.length > 0 ? labels : undefined} />
+              ) : (
+                <div className="text-center py-8 text-neutral-500 text-sm">
+                  No connectome matrix loaded for {activeSubject || 'selected subject'}.
+                </div>
+              )}
+            </div>
+
+            {metrics && labels.length > 0 && (
+              <div className="glass rounded-xl p-6">
+                <h2 className="text-xl font-semibold mb-2">Anatomical Hub Regions</h2>
+                <p className="text-gray-400 text-sm mb-4">
+                  Top structural network hubs ranked by degree and betweenness centrality.
+                </p>
+                <HubRegions
+                  degree={metrics.nodal.degree}
+                  betweenness={metrics.nodal.betweenness_centrality}
+                  labels={labels}
+                  topN={userType === 'doctor' ? 15 : 10}
+                />
+              </div>
+            )}
+          </div>
         )}
 
         {activeTab === 'topology' && metrics && (
@@ -351,20 +409,6 @@ export default function AnalysisPage() {
               </div>
             )}
           </>
-        )}
-
-        {/* ==========================================
-            RESEARCHER + STUDENT: Connectome Matrix
-            ========================================== */}
-        {connectome && userType !== 'general' && (
-          <div className="glass rounded-xl p-6">
-            <h2 className="text-xl font-semibold mb-2">Connectome Matrix</h2>
-            <p className="text-gray-400 text-sm mb-4">
-              {connectome.length} x {connectome[0]?.length || 0} structural connectivity matrix
-              {userType === 'student' && ' — each cell shows the connection strength between two brain regions'}
-            </p>
-            <ConnectomeMatrix matrix={connectome} labels={labels.length > 0 ? labels : undefined} />
-          </div>
         )}
 
         {/* ==========================================

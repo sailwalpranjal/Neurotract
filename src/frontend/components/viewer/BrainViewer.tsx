@@ -10,6 +10,7 @@ import BrainSurface from './BrainSurface';
 import BrainModel from './BrainModel';
 import ViewPresets from './ViewPresets';
 import AnatomicalLabels from './AnatomicalLabels';
+import ConnectomeGraph3D from './ConnectomeGraph3D';
 import * as THREE from 'three';
 
 interface BrainViewerProps {
@@ -26,7 +27,13 @@ function LoadingFallback() {
 }
 
 export default function BrainViewer({ onError }: BrainViewerProps) {
-  const { viewerSettings, streamlineBundle, brainMesh } = useAppStore();
+  const {
+    viewerSettings,
+    streamlineBundle,
+    brainMesh,
+    connectome,
+    parcellationLabels,
+  } = useAppStore();
   const controlsRef = useRef<any>(null);
   const [showStats, setShowStats] = useState(false);
   const [glError, setGlError] = useState<string | null>(null);
@@ -188,6 +195,15 @@ export default function BrainViewer({ onError }: BrainViewerProps) {
             <StreamlineRenderer
               bundle={streamlineBundle}
               settings={viewerSettings}
+            />
+          )}
+
+          {/* 3D Connectome Graph Layer */}
+          {viewerSettings.showConnectomeGraph && connectome && parcellationLabels.length > 0 && (
+            <ConnectomeGraph3D
+              connectome={connectome}
+              labels={parcellationLabels}
+              threshold={viewerSettings.connectomeEdgeThreshold || 1.0}
             />
           )}
 

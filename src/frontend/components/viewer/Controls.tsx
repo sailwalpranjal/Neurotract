@@ -4,10 +4,10 @@ import { useAppStore } from '@/lib/store';
 import { COLORMAPS } from '@/lib/utils';
 import { BrainModelType } from '@/lib/types';
 
-const BRAIN_MODEL_OPTIONS: { value: BrainModelType; label: string; desc: string }[] = [
-  { value: 'hologram', label: 'Hologram', desc: 'Detailed 3D brain model' },
-  { value: 'point_cloud', label: 'Point Cloud', desc: 'Volumetric point representation' },
-  { value: 'marching_cubes', label: 'MRI Mesh', desc: 'Generated from brain mask data' },
+const BRAIN_MODEL_OPTIONS: { value: BrainModelType; label: string; desc: string; provenance: string }[] = [
+  { value: 'marching_cubes', label: 'Subject MRI Mesh', desc: 'Isosurface from subject brain mask', provenance: 'SUBJECT-DERIVED' },
+  { value: 'hologram', label: 'Cortical Hologram', desc: 'Standard MNI reference template', provenance: 'TEMPLATE-DERIVED' },
+  { value: 'point_cloud', label: 'Volumetric Cloud', desc: 'Reference density point cloud', provenance: 'TEMPLATE-DERIVED' },
 ];
 
 export default function Controls() {
@@ -44,7 +44,12 @@ export default function Controls() {
                         : 'bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10'
                     }`}
                   >
-                    <span className="font-medium">{opt.label}</span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{opt.label}</span>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-white/10 text-neutral-300">
+                        {opt.provenance}
+                      </span>
+                    </div>
                     <span className="block text-xs text-gray-400 mt-0.5">{opt.desc}</span>
                   </button>
                 ))}
@@ -226,6 +231,44 @@ export default function Controls() {
             </div>
           </>
         )}
+      </div>
+
+      {/* 3D Connectome Network Section */}
+      <div className="pb-4 border-b border-white/10">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Connectome 3D</h3>
+          <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-cyan-950/80 text-cyan-400 border border-cyan-800/60">
+            DATA-DERIVED
+          </span>
+        </div>
+
+        <div className="space-y-3">
+          <Toggle
+            label="Show 3D Connectome Edges"
+            checked={viewerSettings.showConnectomeGraph}
+            onChange={(checked) => updateViewerSettings({ showConnectomeGraph: checked })}
+          />
+
+          {viewerSettings.showConnectomeGraph && (
+            <div className="mt-2">
+              <label className="block text-sm font-medium mb-1">
+                Streamline Threshold (τ): {viewerSettings.connectomeEdgeThreshold || 1}
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="25"
+                step="1"
+                value={viewerSettings.connectomeEdgeThreshold || 1}
+                onChange={(e) => updateViewerSettings({ connectomeEdgeThreshold: parseInt(e.target.value, 10) })}
+                className="w-full"
+              />
+              <span className="text-[11px] text-gray-400 block mt-1">
+                Only edges with ≥ {viewerSettings.connectomeEdgeThreshold || 1} streamlines rendered
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Animation Section */}

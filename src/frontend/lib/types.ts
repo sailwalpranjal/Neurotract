@@ -7,10 +7,20 @@ export interface ParcellationLabel {
   index: number;
   generic_name: string;
   anatomical_name: string;
+  name?: string;
   abbreviation: string;
   hemisphere: string;
   lobe: string;
   description: string;
+  centroid?: [number, number, number];
+}
+
+export interface ConnectomeEdge {
+  source: number;
+  target: number;
+  weight: number;
+  sourceName?: string;
+  targetName?: string;
 }
 
 // Brain mesh data from marching cubes endpoint
@@ -113,6 +123,9 @@ export interface ViewerSettings {
   selectedRegion: number | null;
   autoRotate: boolean;
   autoRotateSpeed: number;
+  showConnectomeGraph: boolean;
+  showParcellationNodes: boolean;
+  connectomeEdgeThreshold: number;
 }
 
 export interface Job {

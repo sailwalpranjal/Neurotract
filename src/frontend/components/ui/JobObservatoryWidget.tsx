@@ -7,7 +7,9 @@ import { ExecutionEvent } from '@/lib/types';
 
 export default function JobObservatoryWidget() {
   const {
+    activeSubject,
     currentJob,
+    setCurrentJob,
     executionEvents,
     addExecutionEvent,
     clearExecutionEvents,
@@ -16,10 +18,46 @@ export default function JobObservatoryWidget() {
 
   const [activeJobId, setActiveJobId] = useState<string>('');
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
   const [currentStage, setCurrentStage] = useState<string>('idle');
   const [progress, setProgress] = useState<number>(0);
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
+
+  const handleTriggerPipeline = async () => {
+    setIsExecuting(true);
+    try {
+      const subject = activeSubject || 'SUB1';
+      addNotification({
+        type: 'info',
+        title: 'Submitting Analysis Job',
+        message: `Initiating real-time diffusion MRI pipeline for ${subject}...`,
+        duration: 3000,
+      });
+      const job = await apiClient.submitJob({
+        subject_id: subject,
+        mode: 'quick',
+      });
+      setActiveJobId(job.id);
+      setCurrentJob(job);
+      startSubscription(job.id);
+      addNotification({
+        type: 'success',
+        title: 'Job Submitted',
+        message: `Job ${job.id.slice(0, 8)} started. Streaming live SSE events...`,
+        duration: 4000,
+      });
+    } catch (err: any) {
+      addNotification({
+        type: 'error',
+        title: 'Submission Failed',
+        message: err.message || 'Could not submit pipeline job',
+        duration: 6000,
+      });
+    } finally {
+      setIsExecuting(false);
+    }
+  };
 
   // Auto-subscribe if currentJob changes
   useEffect(() => {
@@ -111,13 +149,37 @@ export default function JobObservatoryWidget() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleTriggerPipeline}
+            disabled={isExecuting || isSubscribed}
+            className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-emerald-950/40 transition-all cursor-pointer disabled:cursor-not-allowed"
+          >
+            {isExecuting ? (
+              <>
+                <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                <span>Launching...</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Run Live Pipeline ({activeSubject || 'SUB1'})</span>
+              </>
+            )}
+          </button>
+
           <input
             type="text"
             placeholder="Job ID (e.g. job-abc)"
             value={activeJobId}
             onChange={(e) => setActiveJobId(e.target.value)}
-            className="bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono w-36 sm:w-44"
+            className="bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono w-32 sm:w-40"
           />
           {isSubscribed ? (
             <button
@@ -130,7 +192,7 @@ export default function JobObservatoryWidget() {
             <button
               onClick={() => startSubscription(activeJobId)}
               disabled={!activeJobId}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-neutral-800 disabled:text-neutral-500 text-white rounded-lg text-xs font-semibold transition-colors"
+              className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-40 text-neutral-200 rounded-lg text-xs font-semibold transition-colors"
             >
               Connect SSE
             </button>

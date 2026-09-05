@@ -16,6 +16,7 @@ import {
   ExecutionEvent,
   ValidationBenchmarkResult,
   SensitivityResult,
+  ConnectomeEdge,
 } from './types';
 
 interface AppState {
@@ -106,6 +107,18 @@ interface AppState {
   setValidationBenchmark: (res: ValidationBenchmarkResult | null) => void;
   sensitivityResult: SensitivityResult | null;
   setSensitivityResult: (res: SensitivityResult | null) => void;
+
+  // ── Synchronized Connectome & Analytics State ──
+  hoveredEdge: ConnectomeEdge | null;
+  selectedEdge: ConnectomeEdge | null;
+  hoveredRegion: number | null;
+  selectedRegion: number | null;
+  connectomeThreshold: number;
+  setHoveredEdge: (edge: ConnectomeEdge | null) => void;
+  setSelectedEdge: (edge: ConnectomeEdge | null) => void;
+  setHoveredRegion: (idx: number | null) => void;
+  setSelectedRegion: (idx: number | null) => void;
+  setConnectomeThreshold: (th: number) => void;
 }
 
 let notificationCounter = 0;
@@ -169,6 +182,9 @@ export const useAppStore = create<AppState>((set) => ({
     selectedRegion: null,
     autoRotate: false,
     autoRotateSpeed: 1.0,
+    showConnectomeGraph: true,
+    showParcellationNodes: true,
+    connectomeEdgeThreshold: 1.0,
   },
   updateViewerSettings: (updates) =>
     set((state) => ({
@@ -291,4 +307,16 @@ export const useAppStore = create<AppState>((set) => ({
   setValidationBenchmark: (validationBenchmark) => set({ validationBenchmark }),
   sensitivityResult: null,
   setSensitivityResult: (sensitivityResult) => set({ sensitivityResult }),
+
+  // ── Synchronized Connectome & Analytics State ──
+  hoveredEdge: null,
+  selectedEdge: null,
+  hoveredRegion: null,
+  selectedRegion: null,
+  connectomeThreshold: 1.0,
+  setHoveredEdge: (hoveredEdge) => set({ hoveredEdge }),
+  setSelectedEdge: (selectedEdge) => set({ selectedEdge }),
+  setHoveredRegion: (hoveredRegion) => set({ hoveredRegion }),
+  setSelectedRegion: (selectedRegion) => set({ selectedRegion }),
+  setConnectomeThreshold: (connectomeThreshold) => set({ connectomeThreshold }),
 }));

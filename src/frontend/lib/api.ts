@@ -95,6 +95,19 @@ class APIClient {
     return response.data;
   }
 
+  // Submit full analysis pipeline job
+  async submitJob(config: {
+    subject_id: string;
+    mode?: string;
+    preprocessing?: Record<string, any>;
+    tractography?: Record<string, any>;
+    connectome?: Record<string, any>;
+    rng_seed?: number;
+  }): Promise<Job> {
+    const response = await this.client.post('/jobs/submit', config);
+    return response.data;
+  }
+
   // Tractography
   async runTractography(params: {
     dwi_file: string;

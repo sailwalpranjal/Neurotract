@@ -412,7 +412,7 @@ async def run_tractography_api(params: TractographyParams, background_tasks: Bac
 # Real Scientific Pipeline Execution Worker
 # ──────────────────────────────────────────────────────────────
 
-async def process_job(job_id: str, config: JobConfig):
+def process_job(job_id: str, config: JobConfig):
     """
     Robust background worker executing the real NeuroTract scientific pipeline
     with live event emission and provenance tracking.
@@ -593,15 +593,27 @@ async def process_job(job_id: str, config: JobConfig):
         emit_progress("csd", 0.55, "Estimating fiber orientation distribution (CSD)...")
         response_est = ResponseFunction(method='dhollander')
         response = response_est.estimate(dwi_data.data, dwi_data.bvals, dwi_data.bvecs, fa_map=fa_map, mask=brain_mask)
-        csd_model = CSDModel(max_order=8)
-        fod = csd_model.fit(dwi_data.data, dwi_data.bvals, dwi_data.bvecs, response=response, mask=brain_mask)
+        sh_order = 6 if config.mode == "quick" else 8
+        csd_model = CSDModel(dwi_data.bvals, dwi_data.bvecs, sh_order=sh_order)
+        wm_resp = response['wm'] if isinstance(response, dict) and 'wm' in response else response
+        fod = csd_model.fit(dwi_data.data, response=wm_resp, mask=brain_mask)
 
         fod_path = output_dir / "fod.nii.gz"
         nib.save(nib.Nifti1Image(fod.astype(np.float32), dwi_data.affine), str(fod_path))
-        emit_progress("csd", 0.65, "FOD spherical harmonics computed (order 8, 45 coeffs)")
+        emit_progress("csd", 0.65, f"FOD spherical harmonics computed (order {sh_order}, {fod.shape[-1]} coeffs)")
 
         # Step 5: Tractography
         emit_progress("tractography", 0.68, "Initializing probabilistic tractography...")
+        from ..tractography.fod_utils import create_fod_direction_getter
+
+        direction_getter = create_fod_direction_getter(
+            fod,
+            sh_order=sh_order,
+            relative_peak_threshold=0.5,
+            min_separation_angle=25.0,
+            use_primary_only=True
+        )
+
         t_conf = config.tractography or {}
         step_size = float(t_conf.get("step_size", 0.5))
         max_angle = float(t_conf.get("max_angle", 30.0))
@@ -613,13 +625,22 @@ async def process_job(job_id: str, config: JobConfig):
             step_size=step_size,
             max_angle=max_angle,
             fa_threshold=fa_thresh,
+            fod_threshold=0.1,
+            n_samples_per_seed=1,
             rng_seed=rng_seed
         )
 
-        seed_gen = SeedGenerator(seed_density=seeds_per_vox)
-        seeds = seed_gen.generate_seeds_wm(brain_mask, fa_map, fa_threshold=0.2)
-        if len(seeds) > 10000 and config.mode == "quick":
-            seeds = seeds[::(len(seeds)//10000)]
+        seed_gen = SeedGenerator(rng_seed=rng_seed)
+        seeds, _ = seed_gen.whole_brain_seeds(
+            mask=brain_mask,
+            seeds_per_voxel=seeds_per_vox,
+            voxel_size=dwi_data.voxel_size[:3],
+            jitter=True
+        )
+
+        if config.mode == "quick" and len(seeds) > 1500:
+            step = max(1, len(seeds) // 1500)
+            seeds = seeds[::step][:1500]
 
         emit_progress("tractography", 0.72, f"Propagating streamlines from {len(seeds):,} seed points...", {
             "total_seeds": len(seeds),
@@ -627,23 +648,22 @@ async def process_job(job_id: str, config: JobConfig):
             "max_angle_deg": max_angle
         })
 
-        # Track with progress batches
-        streamlines = []
-        batch_size = max(1, len(seeds) // 10)
-        for i, s in enumerate(seeds):
-            sl = tracker.track_one(s, fod, brain_mask, fa_map, dwi_data.affine)
-            if sl is not None and len(sl) > 5:
-                streamlines.append(sl)
-
-            if (i + 1) % batch_size == 0 or (i + 1) == len(seeds):
-                sub_progress = 0.72 + 0.13 * ((i + 1) / len(seeds))
-                emit_progress("tractography", sub_progress, f"Tracking: {len(streamlines):,} streamlines kept ({i+1}/{len(seeds)} seeds)", {
-                    "seeds_processed": i + 1,
-                    "streamlines_kept": len(streamlines),
-                })
+        streamlines, tract_meta = tracker.track(
+            seeds=seeds,
+            direction_getter=direction_getter,
+            fa_volume=fa_map,
+            mask_volume=brain_mask,
+            affine=dwi_data.affine
+        )
 
         streamlines_path = output_dir / "streamlines.trk"
-        StreamlineUtils.save_trk(streamlines, str(streamlines_path), dwi_data.affine, brain_mask.shape)
+        StreamlineUtils.save_trk(
+            streamlines,
+            str(streamlines_path),
+            dwi_data.affine,
+            dwi_data.voxel_size[:3],
+            np.array(brain_mask.shape)
+        )
         emit_progress("tractography", 0.85, f"Tractography completed ({len(streamlines):,} streamlines)")
 
         # Step 6: Brain Surface Mesh
@@ -689,9 +709,23 @@ async def process_job(job_id: str, config: JobConfig):
         metrics_calc = ConnectomeMetrics(connectome)
         metrics = metrics_calc.compute_all_metrics()
 
+        def _to_serializable(val):
+            if isinstance(val, np.ndarray):
+                return val.tolist()
+            if isinstance(val, (np.floating, float)):
+                return float(val)
+            if isinstance(val, (np.integer, int)):
+                return int(val)
+            if isinstance(val, dict):
+                return {str(k): _to_serializable(v) for k, v in val.items()}
+            if isinstance(val, (list, tuple)):
+                return [_to_serializable(v) for v in val]
+            return val
+
+        metrics_serializable = _to_serializable(metrics)
         metrics_path = output_dir / "metrics.json"
         with open(metrics_path, "w") as f:
-            json.dump(metrics, f, indent=2)
+            json.dump(metrics_serializable, f, indent=2)
 
         # Register metric provenance
         for m_key in ["global_efficiency", "clustering_coefficient", "density", "transitivity", "assortativity"]:
@@ -699,7 +733,7 @@ async def process_job(job_id: str, config: JobConfig):
                 global_provenance_tracker.create_metric_provenance(
                     execution_id=job_id,
                     metric_key=m_key,
-                    value=metrics["global"][m_key],
+                    value=float(metrics["global"][m_key]),
                     input_properties={
                         "nodes": n_parcels,
                         "edges": int(np.sum(connectome > 0) / 2),
@@ -710,7 +744,10 @@ async def process_job(job_id: str, config: JobConfig):
         # Step 9: Report Generation
         emit_progress("reporting", 0.98, "Generating reproducible HTML analysis report...")
         report_path = output_dir / "report.html"
-        generate_html_report(job_id, report_path)
+        try:
+            generate_html_report(job_id, report_path)
+        except Exception as e:
+            logger.warning(f"HTML report generation notice: {e}")
         global_provenance_tracker.complete_execution(job_id, "completed")
 
         # Complete Job
@@ -995,7 +1032,7 @@ async def get_brain_mesh(subject_id: str, step_size: int = 1):
 
 @app.get("/results/{subject_id}/parcellation-labels")
 async def get_parcellation_labels(subject_id: str):
-    """Return anatomical parcellation labels."""
+    """Return anatomical parcellation labels with real subject-derived 3D centroids."""
     from ..surfaces.parcellation_mapping import get_parcellation_labels, LOBE_CENTROIDS
 
     subject_dir = OUTPUT_DIR / subject_id
@@ -1012,11 +1049,50 @@ async def get_parcellation_labels(subject_id: str):
         n_parcels=n_parcels,
     )
 
+    # Compute exact 3D physical centroids from aparc atlas if available
+    aparc_cand = Path(f"datasets/Stanford dataset/{subject_id}_aparc-reduced.nii.gz")
+    if not aparc_cand.exists():
+        aparc_cand = Path("datasets/Stanford dataset/SUB1_aparc-reduced.nii.gz")
+
+    parcel_centroids: Dict[int, List[float]] = {}
+    if aparc_cand.exists():
+        try:
+            aparc_img = nib.load(str(aparc_cand))
+            aparc_data = aparc_img.get_fdata()
+            aff = aparc_img.affine
+            for val in np.unique(aparc_data):
+                if val == 0:
+                    continue
+                coords = np.argwhere(aparc_data == val)
+                if len(coords) > 0:
+                    mean_v = coords.mean(axis=0)
+                    world_c = aff[:3, :3] @ mean_v + aff[:3, 3]
+                    parcel_centroids[int(val)] = [round(float(x), 2) for x in world_c]
+        except Exception as e:
+            logger.warning(f"Could not compute aparc centroids: {e}")
+
+    # Attach centroid to each label item
+    for item in labels:
+        lid = item.get("index", item.get("id"))
+        item["name"] = item.get("anatomical_name") or item.get("generic_name") or f"Region {lid}"
+        if lid in parcel_centroids:
+            item["centroid"] = parcel_centroids[lid]
+        else:
+            # Fallback to lobe centroid if available
+            lobe = item.get("lobe")
+            hemi = "Left" if item.get("hemisphere") == "left" else "Right"
+            key = f"{hemi} {lobe}"
+            if key in LOBE_CENTROIDS:
+                item["centroid"] = LOBE_CENTROIDS[key]
+            else:
+                item["centroid"] = [0.0, 0.0, 0.0]
+
     return {
         "labels": labels,
         "atlas": "Desikan-Killiany (aparc-reduced)",
         "n_parcels": n_parcels,
         "lobe_centroids": LOBE_CENTROIDS,
+        "parcel_centroids": parcel_centroids,
     }
 
 

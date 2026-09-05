@@ -41,7 +41,11 @@ class JobEventManager:
         queues = self._subscribers.get(job_id, [])
         for q in queues:
             try:
-                q.put_nowait(payload)
+                loop = getattr(q, '_loop', None)
+                if loop and loop.is_running():
+                    loop.call_soon_threadsafe(q.put_nowait, payload)
+                else:
+                    q.put_nowait(payload)
             except Exception as e:
                 logger.debug(f"Failed to put event on queue for job {job_id}: {e}")
 
