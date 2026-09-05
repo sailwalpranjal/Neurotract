@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class ConnectomeMetrics:
     """Compute graph theory metrics on structural connectomes"""
 
-    def __init__(self, adjacency_matrix: np.ndarray, node_labels: Optional[List[str]] = None):
+    def __init__(self, adjacency_matrix: Optional[np.ndarray] = None, node_labels: Optional[List[str]] = None):
         """
         Initialize connectome metrics calculator
 
@@ -26,22 +26,32 @@ class ConnectomeMetrics:
             adjacency_matrix: Weighted adjacency matrix (n_nodes, n_nodes)
             node_labels: Optional labels for nodes
         """
+        if adjacency_matrix is not None:
+            self._setup_graph(adjacency_matrix, node_labels)
+        else:
+            self.adj = None
+            self.graph = None
+            self.n_nodes = 0
+            self.node_labels = []
+
+    def _setup_graph(self, adjacency_matrix: np.ndarray, node_labels: Optional[List[str]] = None):
         self.adj = adjacency_matrix
         self.n_nodes = adjacency_matrix.shape[0]
         self.node_labels = node_labels or [f"node_{i}" for i in range(self.n_nodes)]
-
-        # Create NetworkX graph
         self.graph = nx.from_numpy_array(self.adj)
-
-        # Add node labels
         nx.set_node_attributes(
             self.graph,
             {i: label for i, label in enumerate(self.node_labels)},
             'label'
         )
 
-        logger.info(f"Initialized connectome: {self.n_nodes} nodes, "
-                   f"{self.graph.number_of_edges()} edges")
+    def compute_all(self, adjacency_matrix: Optional[np.ndarray] = None) -> Dict[str, any]:
+        """Compute all metrics, optionally providing or updating adjacency_matrix"""
+        if adjacency_matrix is not None:
+            self._setup_graph(adjacency_matrix)
+        elif self.adj is None:
+            raise ValueError("No adjacency_matrix provided to ConnectomeMetrics")
+        return self.compute_all_metrics()
 
     def compute_all_metrics(self) -> Dict[str, any]:
         """

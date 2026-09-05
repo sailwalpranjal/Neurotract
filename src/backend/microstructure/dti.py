@@ -199,9 +199,9 @@ class DTIModel:
                     ad[x, y, z] = evals[0]        # Axial diffusivity (largest eigenvalue)
                     rd[x, y, z] = np.mean(evals[1:])  # Radial diffusivity (mean of smaller eigenvalues)
 
-                    # Fractional anisotropy
+                    # Fractional anisotropy (Basser & Pierpaoli 1996)
                     md_val = md[x, y, z]
-                    numerator = np.sqrt(0.5 * np.sum((evals - md_val)**2))
+                    numerator = np.sqrt(1.5 * np.sum((evals - md_val)**2))
                     denominator = np.sqrt(np.sum(evals**2))
                     if denominator > 1e-10:
                         fa[x, y, z] = numerator / denominator
@@ -282,7 +282,9 @@ def compute_fa_map(eigenvalues: np.ndarray) -> np.ndarray:
         FA map with same shape as input (excluding last dimension)
     """
     md = np.mean(eigenvalues, axis=-1)
-    numerator = np.sqrt(0.5 * np.sum((eigenvalues - md[..., np.newaxis])**2, axis=-1))
+    # Standard FA formulation: sqrt(3/2) * sqrt(sum((evals - md)^2)) / sqrt(sum(evals^2))
+    # Note: 3/2 = 1.5, matching Basser & Pierpaoli (1996)
+    numerator = np.sqrt(1.5 * np.sum((eigenvalues - md[..., np.newaxis])**2, axis=-1))
     denominator = np.sqrt(np.sum(eigenvalues**2, axis=-1))
 
     fa = np.zeros_like(md)

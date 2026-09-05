@@ -39,11 +39,10 @@ from sklearn.metrics import (
     average_precision_score,
     confusion_matrix,
     classification_report,
-    calibration_curve,
     brier_score_loss
 )
 from sklearn.inspection import permutation_importance
-from sklearn.calibration import CalibratedClassifierCV
+from sklearn.calibration import CalibratedClassifierCV, calibration_curve
 from scipy import stats
 import matplotlib.pyplot as plt
 import matplotlib
