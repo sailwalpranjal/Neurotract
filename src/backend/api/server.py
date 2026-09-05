@@ -998,12 +998,27 @@ async def get_metric_definitions():
     return METRIC_REGISTRY
 
 
-@app.get("/api/provenance/{execution_id}")
-async def get_execution_provenance(execution_id: str):
-    """Get full scientific provenance for an execution."""
-    prov = global_provenance_tracker.get_record(execution_id)
+@app.get("/api/provenance/{identifier}")
+async def get_execution_or_metric_provenance(identifier: str):
+    """Get full scientific provenance for an execution ID, or definition for a metric key."""
+    if identifier in METRIC_REGISTRY:
+        reg = METRIC_REGISTRY[identifier]
+        return {
+            "metric_id": identifier,
+            "name": reg.get("name", identifier),
+            "value": None,
+            "units": reg.get("units", ""),
+            "formula": reg.get("formula", ""),
+            "description": reg.get("description", ""),
+            "reference_citation": reg.get("reference", ""),
+            "input_properties": {},
+            "execution_id": "canonical_registry",
+            "timestamp": datetime.utcnow().isoformat(),
+            "software_versions": get_software_versions(),
+        }
+    prov = global_provenance_tracker.get_record(identifier)
     if not prov:
-        raise HTTPException(status_code=404, detail=f"No provenance found for execution {execution_id}")
+        raise HTTPException(status_code=404, detail=f"No provenance or metric definition found for '{identifier}'")
     return prov
 
 
@@ -1017,6 +1032,7 @@ async def get_metric_provenance_endpoint(execution_id: str, metric_key: str):
 
 
 @app.get("/api/validation/benchmark")
+@app.post("/api/validation/benchmark")
 async def run_validation_benchmark_endpoint(n_samples: int = 25):
     """
     Run live reference validation benchmark against DIPY and NetworkX baselines.

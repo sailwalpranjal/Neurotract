@@ -58,3 +58,28 @@ class TestAPIEndpoints:
         data = response.json()
         assert data["is_valid"] is True
         assert data["num_volumes"] == 160
+
+    def test_provenance_metric_endpoint(self):
+        response = client.get("/api/provenance/global_efficiency")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["metric_id"] == "global_efficiency"
+        assert "E_glob" in data["formula"]
+        assert "Latora" in data["reference_citation"]
+
+    def test_sensitivity_run_endpoint(self):
+        response = client.post("/api/sensitivity/run", json={"subject_id": "SUB1", "thresholds": [0, 2, 5]})
+        if response.status_code == 404:
+            pytest.skip("SUB1 connectome not found")
+        assert response.status_code == 200
+        data = response.json()
+        assert "summary" in data
+        assert "stability_ratio" in data["summary"]
+
+    def test_report_export_endpoint(self):
+        response = client.get("/api/report/SUB1/export")
+        if response.status_code == 404:
+            pytest.skip("SUB1 not available for report export")
+        assert response.status_code == 200
+        assert "text/html" in response.headers.get("content-type", "")
+        assert "NeuroTract 2.0" in response.text
