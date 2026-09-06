@@ -5,7 +5,7 @@ REST and Real-Time Event API for diffusion MRI tractography, structural connecto
 construction, graph-theoretic network analytics, scientific provenance, and validation.
 """
 
-from fastapi import FastAPI, File, UploadFile, BackgroundTasks, HTTPException, Query
+from fastapi import FastAPI, File, Form, UploadFile, BackgroundTasks, HTTPException, Query
 from fastapi.responses import JSONResponse, FileResponse, StreamingResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
@@ -15,6 +15,7 @@ import json
 import time
 from pathlib import Path
 import logging
+import os
 from datetime import datetime
 import numpy as np
 import nibabel as nib
@@ -38,22 +39,25 @@ app = FastAPI(
 )
 
 # CORS middleware for web laboratory access
+cors_origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if origin.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Directories
-UPLOAD_DIR = Path("uploads")
+# Directories. Set NEUROTRACT_RUNTIME_DIR to a mounted persistent volume in deployment.
+RUNTIME_DIR = Path(os.getenv("NEUROTRACT_RUNTIME_DIR", "."))
+RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR = RUNTIME_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
-OUTPUT_DIR = Path("output")
+OUTPUT_DIR = RUNTIME_DIR / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 # Job storage with file-based persistence
-jobs_db_file = Path("jobs_database.json")
+jobs_db_file = RUNTIME_DIR / "jobs_database.json"
 
 
 def load_jobs_db() -> Dict[str, Any]:
@@ -129,6 +133,21 @@ class DatasetValidationParams(BaseModel):
     bvec_path: Optional[str] = None
 
 
+class UploadedDatasetParams(BaseModel):
+    """Reference to one browser upload session."""
+    upload_id: str
+
+
+class UploadedDatasetSubmission(UploadedDatasetParams):
+    """Configuration for running a validated browser upload."""
+    subject_id: Optional[str] = None
+    mode: str = "full"
+    preprocessing: Dict[str, Any] = Field(default_factory=dict)
+    tractography: Dict[str, Any] = Field(default_factory=dict)
+    connectome: Dict[str, Any] = Field(default_factory=dict)
+    rng_seed: Optional[int] = 42
+
+
 def _job_to_frontend(j: dict) -> dict:
     """Convert internal job dict to frontend-expected format."""
     return {
@@ -200,17 +219,48 @@ async def stream_job_events(job_id: str):
 # Dataset Ingestion & Validation Boundary
 # ──────────────────────────────────────────────────────────────
 
+def _upload_directory(upload_id: str) -> Path:
+    """Return a validated upload directory, preventing path traversal."""
+    try:
+        import uuid
+        return UPLOAD_DIR / str(uuid.UUID(upload_id))
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=422, detail="upload_id must be a UUID")
+
+
+def _uploaded_dataset_paths(upload_id: str) -> tuple[Path, Optional[Path], Optional[Path]]:
+    """Locate the single DWI and its gradient files in an upload session."""
+    directory = _upload_directory(upload_id)
+    if not directory.is_dir():
+        raise HTTPException(status_code=404, detail="Upload session not found")
+
+    files = [path for path in directory.iterdir() if path.is_file()]
+    dwi_files = [path for path in files if path.name.lower().endswith((".nii", ".nii.gz"))]
+    if len(dwi_files) != 1:
+        raise HTTPException(
+            status_code=422,
+            detail="Upload exactly one DWI NIfTI file (.nii or .nii.gz) with its .bval and .bvec files.",
+        )
+    bval = next((path for path in files if path.name.lower().endswith((".bval", ".bvals"))), None)
+    bvec = next((path for path in files if path.name.lower().endswith((".bvec", ".bvecs"))), None)
+    return dwi_files[0], bval, bvec
+
+
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
-    """Upload neuroimaging file (.nii, .nii.gz, .bval, .bvec, .trk)"""
+async def upload_file(file: UploadFile = File(...), upload_id: Optional[str] = Form(None)):
+    """Store one member of a DWI upload session for later validation and execution."""
     import uuid
     import shutil
 
-    file_id = str(uuid.uuid4())
-    file_dir = UPLOAD_DIR / file_id
+    file_id = upload_id or str(uuid.uuid4())
+    file_dir = _upload_directory(file_id)
     file_dir.mkdir(parents=True, exist_ok=True)
 
-    file_path = file_dir / file.filename
+    filename = Path(file.filename or "upload").name
+    allowed_suffixes = (".nii", ".nii.gz", ".bval", ".bvals", ".bvec", ".bvecs")
+    if not filename.lower().endswith(allowed_suffixes):
+        raise HTTPException(status_code=422, detail="Supported upload files are .nii/.nii.gz, .bval, and .bvec.")
+    file_path = file_dir / filename
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
@@ -223,6 +273,17 @@ async def upload_file(file: UploadFile = File(...)):
         "size_bytes": file_size,
         "path": str(file_path),
     }
+
+
+@app.post("/api/uploads/validate")
+async def validate_uploaded_dataset(params: UploadedDatasetParams):
+    """Validate a complete browser upload without exposing filesystem paths to the client."""
+    dwi, bval, bvec = _uploaded_dataset_paths(params.upload_id)
+    report = DatasetValidator().validate_dwi_dataset(dwi, bval, bvec)
+    result = report.to_dict()
+    result["upload_id"] = params.upload_id
+    result["ready_for_pipeline"] = report.is_valid
+    return result
 
 
 def _resolve_dataset_paths(dwi: str, bval: Optional[str] = None, bvec: Optional[str] = None):
@@ -345,6 +406,11 @@ async def delete_job(job_id: str):
 @app.post("/jobs/submit")
 async def submit_job(config: JobConfig, background_tasks: BackgroundTasks):
     """Submit a new analysis job (full pipeline)."""
+    return _queue_job(config, background_tasks)
+
+
+def _queue_job(config: JobConfig, background_tasks: BackgroundTasks):
+    """Persist and schedule a validated pipeline configuration."""
     import uuid
 
     job_id = str(uuid.uuid4())
@@ -372,6 +438,31 @@ async def submit_job(config: JobConfig, background_tasks: BackgroundTasks):
     logger.info(f"Job {job_id} submitted for subject {config.subject_id}")
 
     return _job_to_frontend(job)
+
+
+@app.post("/api/uploads/submit")
+async def submit_uploaded_dataset(params: UploadedDatasetSubmission, background_tasks: BackgroundTasks):
+    """Validate a browser upload again, then schedule it in the real pipeline."""
+    dwi, bval, bvec = _uploaded_dataset_paths(params.upload_id)
+    report = DatasetValidator().validate_dwi_dataset(dwi, bval, bvec)
+    if not report.is_valid:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Uploaded dataset is not ready for processing.", "errors": report.errors},
+        )
+
+    subject_name = params.subject_id or dwi.name.replace(".nii.gz", "").replace(".nii", "")
+    config = JobConfig(
+        subject_id=str(dwi),
+        mode=params.mode,
+        preprocessing=params.preprocessing,
+        tractography=params.tractography,
+        connectome=params.connectome,
+        rng_seed=params.rng_seed,
+    )
+    job = _queue_job(config, background_tasks)
+    job["uploaded_subject_name"] = subject_name
+    return job
 
 
 @app.post("/tractography")
@@ -1072,7 +1163,7 @@ async def get_brain_mesh(subject_id: str, step_size: int = 1):
     mask_path = subject_dir / "preprocessed" / "preprocessed_brain_mask.nii.gz"
 
     if not mask_path.exists():
-        for p in Path("output").rglob("*brain_mask*.nii*"):
+        for p in OUTPUT_DIR.rglob("*brain_mask*.nii*"):
             mask_path = p
             break
 

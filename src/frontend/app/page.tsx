@@ -202,23 +202,20 @@ export default function Home() {
         {/* Upload Section */}
         <section className="glass rounded-xl p-6 md:p-8">
           <h2 className="text-2xl font-semibold mb-2">Upload New Data</h2>
-          <p className="text-gray-300 text-sm mb-6">Upload diffusion MRI data to begin tractography analysis</p>
+          <p className="text-gray-300 text-sm mb-6">Upload one 4D diffusion MRI volume with its matching b-values and b-vectors. The dataset is validated before it can enter the pipeline.</p>
           <FileUpload onUploadComplete={() => setUploadComplete(true)} />
           {uploadComplete && (
             <div className="mt-6 p-4 bg-green-500/20 border border-green-500/50 rounded-lg">
               <p className="text-green-300 text-sm">
-                Files uploaded. Use the CLI to run the pipeline, then refresh to see results.
+                Dataset validation passed. Use the Start pipeline button above to submit it for processing.
               </p>
-              <button onClick={checkServer} className="mt-3 px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors text-sm">
-                Refresh Results
-              </button>
             </div>
           )}
         </section>
 
         {/* Supported Formats */}
         <div className="text-center text-sm text-gray-500 pb-4">
-          <p>Supported formats: NIfTI (.nii, .nii.gz), BVAL/BVEC, TRK, TCK</p>
+          <p>Pipeline inputs: NIfTI (.nii, .nii.gz), BVAL, and BVEC</p>
           <p className="mt-1 text-xs text-gray-400 font-mono">NeuroTract 2.0.0 Scientific Laboratory (DIPY 1.11.0, NetworkX 3.6.1)</p>
         </div>
 

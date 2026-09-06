@@ -127,7 +127,8 @@ results/
 # Environment variables
 .env
 .env.local
-!src/frontend/.env.local
+.env.*
+!.env.example
 
 # Checkpoints
 checkpoints/
@@ -139,4 +140,3 @@ jobs_database.json
 
 # Keep empty directories
 !**/.gitkeep
-

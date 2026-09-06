@@ -3,6 +3,11 @@ Integration tests for FastAPI endpoints
 """
 
 import pytest
+import io
+import shutil
+import uuid
+import numpy as np
+import nibabel as nib
 from fastapi.testclient import TestClient
 from src.backend.api.server import app
 
@@ -58,6 +63,26 @@ class TestAPIEndpoints:
         data = response.json()
         assert data["is_valid"] is True
         assert data["num_volumes"] == 160
+
+    def test_uploaded_dataset_is_validated_before_submission(self, tmp_path):
+        """A browser upload session keeps its DWI and gradient files together."""
+        dwi_path = tmp_path / "dwi.nii.gz"
+        nib.save(nib.Nifti1Image(np.ones((2, 2, 2, 2)), np.eye(4)), dwi_path)
+        session_id = str(uuid.uuid4())
+        try:
+            with open(dwi_path, "rb") as dwi:
+                response = client.post("/upload", data={"upload_id": session_id}, files={"file": ("dwi.nii.gz", dwi, "application/gzip")})
+            assert response.status_code == 200
+            response = client.post("/upload", data={"upload_id": session_id}, files={"file": ("dwi.bval", io.BytesIO(b"0 1000\n"), "text/plain")})
+            assert response.status_code == 200
+            response = client.post("/upload", data={"upload_id": session_id}, files={"file": ("dwi.bvec", io.BytesIO(b"0 1\n0 0\n0 0\n"), "text/plain")})
+            assert response.status_code == 200
+
+            report = client.post("/api/uploads/validate", json={"upload_id": session_id})
+            assert report.status_code == 200
+            assert report.json()["ready_for_pipeline"] is True
+        finally:
+            shutil.rmtree("uploads/" + session_id, ignore_errors=True)
 
     def test_provenance_metric_endpoint(self):
         response = client.get("/api/provenance/global_efficiency")

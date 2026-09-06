@@ -73,10 +73,12 @@ class APIClient {
   // File upload
   async uploadFile(
     file: File,
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    uploadId?: string
   ): Promise<{ file_id: string; filename: string }> {
     const formData = new FormData();
     formData.append('file', file);
+    if (uploadId) formData.append('upload_id', uploadId);
 
     const response = await this.client.post('/upload', formData, {
       headers: {
@@ -92,6 +94,23 @@ class APIClient {
       },
     });
 
+    return response.data;
+  }
+
+  async validateUploadedDataset(uploadId: string): Promise<DatasetValidationReport & {
+    upload_id: string;
+    ready_for_pipeline: boolean;
+  }> {
+    const response = await this.client.post('/api/uploads/validate', { upload_id: uploadId });
+    return response.data;
+  }
+
+  async submitUploadedDataset(uploadId: string, subjectId?: string): Promise<Job> {
+    const response = await this.client.post('/api/uploads/submit', {
+      upload_id: uploadId,
+      subject_id: subjectId,
+      mode: 'full',
+    });
     return response.data;
   }
 
