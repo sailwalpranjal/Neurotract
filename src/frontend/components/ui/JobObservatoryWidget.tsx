@@ -111,14 +111,20 @@ export default function JobObservatoryWidget() {
         if (evt.stage) setCurrentStage(evt.stage);
         if (evt.progress !== undefined) setProgress(evt.progress);
 
-        if (evt.event_type === 'job_completed') {
+        if (evt.event_type === 'job_completed' || evt.event_type === 'job_failed') {
           setIsSubscribed(false);
-        } else if (evt.event_type === 'job_failed') {
-          setIsSubscribed(false);
+          if (unsubscribeRef.current) {
+            unsubscribeRef.current();
+            unsubscribeRef.current = null;
+          }
         }
       },
       () => {
         setIsSubscribed(false);
+        if (unsubscribeRef.current) {
+          unsubscribeRef.current();
+          unsubscribeRef.current = null;
+        }
       }
     );
 

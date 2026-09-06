@@ -154,34 +154,36 @@ export default function BrainViewer({ onError }: BrainViewerProps) {
           });
         }}
       >
-        {/* Camera */}
+        {/* Camera configured for RAS+ neuroimaging space (Z-up, looking at anterior face) */}
         <PerspectiveCamera
           makeDefault
-          position={viewerSettings.cameraPosition as [number, number, number]}
-          fov={50}
-          near={0.1}
-          far={10000}
+          position={viewerSettings.cameraPosition as [number, number, number] || [0, -220, 80]}
+          up={[0, 0, 1]}
+          fov={45}
+          near={0.5}
+          far={5000}
         />
 
-        {/* Enhanced Scientific Lighting */}
-        <ambientLight intensity={0.4} />
-        <hemisphereLight args={['#b1e1ff', '#1e293b', 0.6]} />
-        <directionalLight position={[100, 100, 50]} intensity={0.9} castShadow />
-        <directionalLight position={[-100, -50, -50]} intensity={0.3} />
-        <directionalLight position={[0, 100, -100]} intensity={0.2} />
-        <pointLight position={[0, 0, 150]} intensity={0.4} color="#88ccff" />
-        <pointLight position={[0, -100, 0]} intensity={0.15} color="#34d399" />
+        {/* Enhanced Scientific Surgical Lighting */}
+        <ambientLight intensity={0.55} />
+        <hemisphereLight args={['#e2e8f0', '#0f172a', 0.6]} />
+        <directionalLight position={[120, -180, 160]} intensity={1.2} castShadow />
+        <directionalLight position={[-120, 180, -100]} intensity={0.5} />
+        <directionalLight position={[0, -150, 0]} intensity={0.6} />
+        <pointLight position={[0, -50, 150]} intensity={0.5} color="#38bdf8" />
+        <pointLight position={[0, 150, 50]} intensity={0.3} color="#818cf8" />
 
-        {/* Controls */}
+        {/* Controls centered on anatomical brain centroid */}
         <OrbitControls
           ref={controlsRef}
+          target={[0, -12, 18]}
           enableDamping
-          dampingFactor={0.05}
-          rotateSpeed={0.5}
-          panSpeed={0.5}
-          zoomSpeed={0.8}
-          minDistance={10}
-          maxDistance={1000}
+          dampingFactor={0.08}
+          rotateSpeed={0.7}
+          panSpeed={0.7}
+          zoomSpeed={0.9}
+          minDistance={20}
+          maxDistance={1200}
           autoRotate={viewerSettings.autoRotate}
           autoRotateSpeed={viewerSettings.autoRotateSpeed}
           makeDefault
@@ -336,6 +338,28 @@ export default function BrainViewer({ onError }: BrainViewerProps) {
           )}
         </div>
       )}
+
+      {/* Directional RGB Colormap Legend (Neuroimaging Standard) */}
+      <div className="absolute bottom-4 left-4 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-lg px-3 py-2 text-xs shadow-lg space-y-1 z-10 hidden sm:block">
+        <div className="flex items-center justify-between gap-3 text-[10px] font-mono font-semibold uppercase text-slate-400">
+          <span>Orientation Vectors</span>
+          <span className="text-cyan-400">RAS+ Space</span>
+        </div>
+        <div className="flex items-center gap-3 text-[11px] font-mono">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block shadow-sm shadow-red-500/50" />
+            <span className="text-slate-300 font-medium">X: L ↔ R</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block shadow-sm shadow-green-500/50" />
+            <span className="text-slate-300 font-medium">Y: A ↔ P</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block shadow-sm shadow-blue-500/50" />
+            <span className="text-slate-300 font-medium">Z: I ↔ S</span>
+          </div>
+        </div>
+      </div>
 
       {/* Keyboard Shortcuts Bar */}
       <div className="absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-400 hidden md:block shadow-lg">

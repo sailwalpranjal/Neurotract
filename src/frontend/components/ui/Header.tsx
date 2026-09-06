@@ -39,24 +39,27 @@ export default function Header() {
               </button>
             )}
 
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-primary-400 to-primary-600 rounded-lg flex items-center justify-center font-bold text-white">
+            <Link href="/" className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 bg-gradient-to-br from-cyan-400 via-primary-500 to-primary-700 rounded-lg flex items-center justify-center font-bold text-white shadow-md shadow-cyan-500/20">
                 N
               </div>
-              <span className="text-xl font-bold hidden sm:inline">NeuroTract</span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xl font-bold tracking-tight text-white hidden sm:inline">NeuroTract</span>
+                <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-1.5 py-0.5 rounded border border-cyan-800/60 font-semibold">2.0</span>
+              </div>
             </Link>
           </div>
 
           {/* Center: Navigation */}
-          <nav className="hidden md:flex space-x-1" role="navigation">
+          <nav className="hidden md:flex space-x-1.5 bg-black/20 p-1 rounded-xl border border-white/[0.04]" role="navigation">
             <NavLink href="/" active={isActive('/')}>
-              Home
+              Workstation
             </NavLink>
             <NavLink href="/viewer" active={isActive('/viewer')}>
               3D Viewer
             </NavLink>
             <NavLink href="/analysis" active={isActive('/analysis')}>
-              Analysis
+              Connectomics
             </NavLink>
           </nav>
 
@@ -64,14 +67,15 @@ export default function Header() {
           <div className="flex items-center gap-2">
             {/* Active subject indicator */}
             {mounted && activeSubject && (
-              <span className="hidden lg:inline-flex text-xs text-primary-300 bg-primary-500/20 px-2.5 py-1 rounded-full">
+              <span className="hidden lg:inline-flex items-center gap-1.5 text-xs text-cyan-300 bg-cyan-950/70 border border-cyan-800/60 px-2.5 py-1 rounded-full font-mono">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
                 {activeSubject}
               </span>
             )}
 
             {/* User type badge - only render after mount to avoid hydration mismatch */}
             {mounted && (
-              <span className="hidden sm:inline-flex text-xs text-gray-300 bg-white/10 px-2.5 py-1 rounded-full">
+              <span className="hidden sm:inline-flex text-xs text-slate-300 bg-slate-800/80 border border-slate-700/60 px-2.5 py-1 rounded-full font-mono">
                 {USER_TYPE_LABELS[userType]}
               </span>
             )}
@@ -80,11 +84,11 @@ export default function Header() {
             {showSidebarToggle && (
               <button
                 onClick={toggleSidebar}
-                className="hidden md:flex p-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="hidden md:flex p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors border border-white/[0.05]"
                 aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
                 aria-expanded={sidebarOpen}
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   {sidebarOpen ? (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   ) : (
@@ -101,7 +105,7 @@ export default function Header() {
       <nav className="md:hidden border-t border-white/10 px-4 py-2" role="navigation">
         <div className="flex space-x-1">
           <NavLink href="/" active={isActive('/')} mobile>
-            Home
+            Workstation
           </NavLink>
           <NavLink href="/viewer" active={isActive('/viewer')} mobile>
             Viewer
@@ -131,11 +135,11 @@ function NavLink({
       href={href}
       className={`
         ${mobile ? 'flex-1 text-center text-sm' : ''}
-        px-4 py-2 rounded-lg transition-colors
+        px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all
         ${
           active
-            ? 'bg-primary-600 text-white'
-            : 'text-gray-300 hover:bg-white/10 hover:text-white'
+            ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/40 shadow-sm shadow-cyan-500/10 font-semibold'
+            : 'text-slate-400 hover:bg-white/[0.05] hover:text-slate-200'
         }
       `}
     >

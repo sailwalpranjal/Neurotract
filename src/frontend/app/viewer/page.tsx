@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import Sidebar from '@/components/ui/Sidebar';
 import { useAppStore } from '@/lib/store';
@@ -34,6 +34,7 @@ export default function ViewerPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingData, setLoadingData] = useState(false);
   const [viewportLayout, setViewportLayout] = useState<'split' | '3d' | '2d'>('split');
+  const loadedSubjectRef = useRef<string | null>(null);
 
   // Auto-load data when page mounts or subject changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -43,9 +44,6 @@ export default function ViewerPage() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const loadViewerData = useCallback(async () => {
-    // If we already have all data for the current subject, skip
-    if (streamlineBundle && brainMesh && activeSubject) return;
-
     // If no subject is set, try to auto-detect from available results
     let subjectToLoad = activeSubject;
     if (!subjectToLoad) {
@@ -56,7 +54,8 @@ export default function ViewerPage() {
           setAvailableResults(results);
         }
         if (results.length > 0) {
-          subjectToLoad = results[0].subject_id;
+          const complete = results.find((r) => r.has_streamlines && r.has_connectome) || results[0];
+          subjectToLoad = complete.subject_id;
           setActiveSubject(subjectToLoad);
         }
       } catch {
@@ -65,6 +64,9 @@ export default function ViewerPage() {
     }
 
     if (!subjectToLoad) return;
+
+    // If we already have data loaded for this exact subject, skip
+    if (loadedSubjectRef.current === subjectToLoad && streamlineBundle && brainMesh) return;
 
     setLoadingData(true);
     const notifId = addNotification({
@@ -75,13 +77,15 @@ export default function ViewerPage() {
     });
 
     try {
+      const isNewSubject = loadedSubjectRef.current !== subjectToLoad;
       // Load streamlines, brain mesh, connectome, and labels in parallel
       const [streamlineData, meshData, connectomeData, labelsData] = await Promise.all([
-        streamlineBundle ? Promise.resolve(null) : apiClient.getResultStreamlines(subjectToLoad).catch(() => null),
-        brainMesh ? Promise.resolve(null) : apiClient.getBrainMesh(subjectToLoad).catch(() => null),
-        useAppStore.getState().connectome ? Promise.resolve(null) : apiClient.getResultConnectome(subjectToLoad).catch(() => null),
-        useAppStore.getState().parcellationLabels.length > 0 ? Promise.resolve(null) : apiClient.getParcellationLabels(subjectToLoad).catch(() => null),
+        (streamlineBundle && !isNewSubject) ? Promise.resolve(null) : apiClient.getResultStreamlines(subjectToLoad).catch(() => null),
+        (brainMesh && !isNewSubject) ? Promise.resolve(null) : apiClient.getBrainMesh(subjectToLoad).catch(() => null),
+        (useAppStore.getState().connectome && !isNewSubject) ? Promise.resolve(null) : apiClient.getResultConnectome(subjectToLoad).catch(() => null),
+        (useAppStore.getState().parcellationLabels.length > 0 && !isNewSubject) ? Promise.resolve(null) : apiClient.getParcellationLabels(subjectToLoad).catch(() => null),
       ]);
+      loadedSubjectRef.current = subjectToLoad;
 
       if (streamlineData) {
         // Convert the JSON response to the StreamlineBundle format

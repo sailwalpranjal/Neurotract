@@ -3,19 +3,18 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 26, 26, 46;
-  --background-end-rgb: 15, 48, 96;
+  --foreground-rgb: 241, 245, 249;
+  --background-start-rgb: 8, 11, 17;
+  --background-end-rgb: 12, 16, 26;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background-color: rgb(var(--background-start-rgb));
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(6, 182, 212, 0.12), transparent),
+    linear-gradient(to bottom, #080b11, #0c101a);
+  background-attachment: fixed;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
@@ -31,21 +30,21 @@ body {
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(8, 11, 17, 0.6);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(6, 182, 212, 0.4);
 }
 
 /* Loading spinner */
@@ -56,17 +55,17 @@ body {
 }
 
 .spinner {
-  border: 3px solid rgba(255, 255, 255, 0.1);
+  border: 2.5px solid rgba(255, 255, 255, 0.1);
   border-radius: 50%;
-  border-top-color: #0ea5e9;
-  width: 40px;
-  height: 40px;
-  animation: spin 1s linear infinite;
+  border-top-color: #06b6d4;
+  width: 36px;
+  height: 36px;
+  animation: spin 0.8s linear infinite;
 }
 
 /* Focus visible for accessibility */
 *:focus-visible {
-  outline: 2px solid #0ea5e9;
+  outline: 2px solid #06b6d4;
   outline-offset: 2px;
 }
 
@@ -78,18 +77,28 @@ body {
   min-height: 400px;
 }
 
-/* Glass morphism */
+/* Modern Scientific Glass Morphism */
 .glass {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(13, 19, 31, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
 }
 
-/* Plotly chart container */
-.plotly-container {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-  padding: 1rem;
+.glass-panel {
+  background: rgba(10, 15, 24, 0.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Sliders */
+input[type="range"] {
+  accent-color: #06b6d4;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  height: 6px;
 }
 
 /* Notification slide-in animation */

@@ -339,24 +339,38 @@ class APIClient {
     onError?: (err: Event) => void
   ): () => void {
     const eventSource = new EventSource(`${API_BASE_URL}/jobs/${jobId}/events`);
+    let isClosed = false;
+
+    const close = () => {
+      if (!isClosed) {
+        isClosed = true;
+        try {
+          eventSource.close();
+        } catch {
+          // ignore
+        }
+      }
+    };
 
     eventSource.onmessage = (event) => {
       try {
         const parsed: ExecutionEvent = JSON.parse(event.data);
         onEvent(parsed);
+        if (parsed.event_type === 'job_completed' || parsed.event_type === 'job_failed') {
+          close();
+        }
       } catch (e) {
         console.error('Error parsing SSE event data:', e);
       }
     };
 
     eventSource.onerror = (err) => {
-      console.warn('SSE EventSource error:', err);
+      // Prevent browser EventSource from reconnecting endlessly to a closed or finished stream
+      close();
       if (onError) onError(err);
     };
 
-    return () => {
-      eventSource.close();
-    };
+    return close;
   }
 }
 

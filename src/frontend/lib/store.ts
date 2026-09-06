@@ -165,19 +165,19 @@ export const useAppStore = create<AppState>((set) => ({
     showSlices: false,
     showLabels: false,
     brainModelType: 'marching_cubes',
-    brainSurfaceOpacity: 0.15,
-    brainSurfaceColor: '#e8d5cf',
+    brainSurfaceOpacity: 0.35,
+    brainSurfaceColor: '#cbd5e1',
     brainSurfaceWireframe: false,
-    brainEmissiveIntensity: 0.3,
-    brainMetalness: 0.1,
-    brainRoughness: 0.7,
+    brainEmissiveIntensity: 0.25,
+    brainMetalness: 0.15,
+    brainRoughness: 0.55,
     slicePosition: {
       axial: 0.5,
       coronal: 0.5,
       sagittal: 0.5,
     },
-    backgroundColor: '#1a1a2e',
-    cameraPosition: [0, 0, 300],
+    backgroundColor: '#080b11',
+    cameraPosition: [0, -220, 80],
     levelOfDetail: 'medium',
     selectedRegion: null,
     autoRotate: false,
@@ -229,8 +229,8 @@ export const useAppStore = create<AppState>((set) => ({
   setMetrics: (metrics) => set({ metrics }),
   setConnectome: (connectome) => set({ connectome }),
 
-  // Active subject
-  activeSubject: null,
+  // Active subject (default to primary verified Stanford subject)
+  activeSubject: 'SUB1',
   setActiveSubject: (subject) => set({ activeSubject: subject }),
 
   // Available results

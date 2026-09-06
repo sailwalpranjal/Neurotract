@@ -44,6 +44,13 @@ export default function AnalysisPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'topology' | 'matrix' | 'comparison' | 'validation' | 'sensitivity'>('topology');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const effectiveUserType = mounted ? userType : 'general';
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -68,7 +75,8 @@ export default function AnalysisPage() {
           setAvailableResults(results);
         }
         if (results.length > 0) {
-          subjectToLoad = results[0].subject_id;
+          const complete = results.find((r) => r.has_connectome && r.has_metrics) || results[0];
+          subjectToLoad = complete.subject_id;
           setActiveSubject(subjectToLoad);
         }
       } catch {
@@ -149,17 +157,17 @@ export default function AnalysisPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold mb-1">
-              {userType === 'doctor' ? 'Clinical Analysis' :
-               userType === 'student' ? 'Research Analysis' :
+              {effectiveUserType === 'doctor' ? 'Clinical Analysis' :
+               effectiveUserType === 'student' ? 'Research Analysis' :
                'Brain Connectivity Report'}
             </h1>
             <p className="text-gray-300 text-sm md:text-base">
-              {userType === 'doctor'
+              {effectiveUserType === 'doctor'
                 ? 'Comprehensive structural connectome analysis with normative comparison'
-                : userType === 'student'
+                : effectiveUserType === 'student'
                 ? 'Interactive network analysis with educational resources'
                 : 'Understanding your brain connectivity results'}
-              {activeSubject && <span className="ml-2 text-primary-400">- {activeSubject}</span>}
+              {mounted && activeSubject && <span className="ml-2 text-primary-400">- {activeSubject}</span>}
             </p>
           </div>
           <UserTypeSelector compact />
@@ -278,7 +286,7 @@ export default function AnalysisPage() {
                   degree={metrics.nodal.degree}
                   betweenness={metrics.nodal.betweenness_centrality}
                   labels={labels}
-                  topN={userType === 'doctor' ? 15 : 10}
+                  topN={effectiveUserType === 'doctor' ? 15 : 10}
                 />
               </div>
             )}
@@ -297,10 +305,10 @@ export default function AnalysisPage() {
                 ========================================== */}
             <div className="glass rounded-xl p-6 border border-primary-500/20">
               <h2 className="text-lg font-semibold mb-3">
-                {userType === 'doctor' ? 'Clinical Summary' : userType === 'student' ? 'Network Overview' : 'Summary'}
+                {effectiveUserType === 'doctor' ? 'Clinical Summary' : effectiveUserType === 'student' ? 'Network Overview' : 'Summary'}
               </h2>
               <p className="text-gray-300 text-sm leading-relaxed">
-                {generateSummary(metrics, userType)}
+                {generateSummary(metrics, effectiveUserType)}
               </p>
             </div>
 
@@ -309,7 +317,7 @@ export default function AnalysisPage() {
                 ========================================== */}
             <div className="glass rounded-xl p-6">
               <h2 className="text-xl font-semibold mb-4">
-                {userType === 'general' ? 'Key Measurements' : 'Global Network Metrics'}
+                {effectiveUserType === 'general' ? 'Key Measurements' : 'Global Network Metrics'}
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 <MetricCard label="Clustering Coefficient" metricKey="clustering_coefficient" value={metrics.global.clustering_coefficient} />
@@ -317,7 +325,7 @@ export default function AnalysisPage() {
                 <MetricCard label="Global Efficiency" metricKey="global_efficiency" value={metrics.global.global_efficiency} />
                 <MetricCard label="Modularity" metricKey="modularity" value={metrics.global.modularity} />
                 {/* Show more metrics for researchers and students */}
-                {userType !== 'general' && (
+                {effectiveUserType !== 'general' && (
                   <>
                     <MetricCard label="Assortativity" metricKey="assortativity" value={metrics.global.assortativity} />
                     <MetricCard label="Small-Worldness" metricKey="small_worldness" value={metrics.global.small_worldness} />
@@ -335,14 +343,14 @@ export default function AnalysisPage() {
             {/* ==========================================
                 RESEARCHER (doctor): Advanced Analysis Tools
                 ========================================== */}
-            {userType === 'doctor' && labels.length > 0 && (
+            {effectiveUserType === 'doctor' && labels.length > 0 && (
               <AdvancedMetrics metrics={metrics} labels={labels} connectome={connectome} />
             )}
 
             {/* ==========================================
                 STUDENT: Educational Panel + Correlations
                 ========================================== */}
-            {userType === 'student' && labels.length > 0 && (
+            {effectiveUserType === 'student' && labels.length > 0 && (
               <div className="glass rounded-xl p-6">
                 <h2 className="text-xl font-semibold mb-2">Learning Center</h2>
                 <p className="text-gray-400 text-sm mb-4">
@@ -355,11 +363,11 @@ export default function AnalysisPage() {
             {/* ==========================================
                 RESEARCHER + STUDENT: Hub Regions
                 ========================================== */}
-            {userType !== 'general' && labels.length > 0 && (
+            {effectiveUserType !== 'general' && labels.length > 0 && (
               <div className="glass rounded-xl p-6">
                 <h2 className="text-xl font-semibold mb-2">Hub Regions</h2>
                 <p className="text-gray-400 text-sm mb-4">
-                  {userType === 'doctor'
+                  {effectiveUserType === 'doctor'
                     ? 'Top network hubs ranked by degree and betweenness centrality'
                     : 'The most connected and influential regions in the brain network'}
                 </p>
@@ -367,7 +375,7 @@ export default function AnalysisPage() {
                   degree={metrics.nodal.degree}
                   betweenness={metrics.nodal.betweenness_centrality}
                   labels={labels}
-                  topN={userType === 'doctor' ? 15 : 10}
+                  topN={effectiveUserType === 'doctor' ? 15 : 10}
                 />
               </div>
             )}
@@ -375,7 +383,7 @@ export default function AnalysisPage() {
             {/* ==========================================
                 RESEARCHER + STUDENT: Nodal Metrics Charts
                 ========================================== */}
-            {userType !== 'general' && (
+            {effectiveUserType !== 'general' && (
               <div className="glass rounded-xl p-6">
                 <h2 className="text-xl font-semibold mb-2">Nodal Metrics</h2>
                 <p className="text-gray-400 text-sm mb-4">
@@ -391,12 +399,12 @@ export default function AnalysisPage() {
             {metrics.communities?.louvain_partition && labels.length > 0 && (
               <div className="glass rounded-xl p-6">
                 <h2 className="text-xl font-semibold mb-2">
-                  {userType === 'general' ? 'Brain Region Groups' : 'Community Structure'}
+                  {effectiveUserType === 'general' ? 'Brain Region Groups' : 'Community Structure'}
                 </h2>
                 <p className="text-gray-400 text-sm mb-4">
-                  {userType === 'doctor'
+                  {effectiveUserType === 'doctor'
                     ? 'Louvain community detection partitioning with member regions and node strength'
-                    : userType === 'student'
+                    : effectiveUserType === 'student'
                     ? 'Brain regions grouped into communities that are more densely connected internally'
                     : 'Your brain regions organized into groups that work closely together'}
                 </p>

@@ -1,15 +1,8 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useMemo } from 'react';
 import * as THREE from 'three';
 import { StreamlineBundle, ViewerSettings } from '@/lib/types';
-import {
-  getColorFromMap,
-  calculateStreamlineLength,
-  calculateMeanOrientation,
-  Colormap,
-} from '@/lib/utils';
 
 interface StreamlineRendererProps {
   bundle: StreamlineBundle;
@@ -20,146 +13,100 @@ export default function StreamlineRenderer({
   bundle,
   settings,
 }: StreamlineRendererProps) {
-  const groupRef = useRef<THREE.Group>(null);
-
-  // Generate geometry for all streamlines
-  const { geometries, colors } = useMemo(() => {
-    const geometries: THREE.BufferGeometry[] = [];
-    const colors: THREE.Color[] = [];
-
-    const colorMapping = settings.colorMapping;
-    let valueMin = Infinity;
-    let valueMax = -Infinity;
-
-    // First pass: calculate min/max for normalization
-    bundle.streamlines.forEach((streamline) => {
-      let value = 0;
-
-      switch (colorMapping.type) {
-        case 'length':
-          value = streamline.length || calculateStreamlineLength(streamline.points);
-          break;
-        case 'fa':
-          value = streamline.fa || 0;
-          break;
-        case 'orientation':
-          // Will handle separately
-          break;
-      }
-
-      if (colorMapping.type !== 'orientation') {
-        valueMin = Math.min(valueMin, value);
-        valueMax = Math.max(valueMax, value);
-      }
-    });
-
-    // Use custom range if provided
-    if (colorMapping.range) {
-      [valueMin, valueMax] = colorMapping.range;
+  // Batch all streamlines into a single LineSegments BufferGeometry (1 draw call)
+  const geometry = useMemo(() => {
+    if (!bundle?.streamlines || bundle.streamlines.length === 0) {
+      return null;
     }
 
-    // Second pass: create geometries and colors
-    bundle.streamlines.forEach((streamline) => {
-      const points = streamline.points;
-      const numPoints = streamline.numPoints;
-
-      // Create line geometry
-      const geometry = new THREE.BufferGeometry();
-      const positions = new Float32Array(numPoints * 3);
-
-      for (let i = 0; i < numPoints; i++) {
-        positions[i * 3] = points[i * 3];
-        positions[i * 3 + 1] = points[i * 3 + 1];
-        positions[i * 3 + 2] = points[i * 3 + 2];
+    // Count total segments
+    let totalSegments = 0;
+    for (let s = 0; s < bundle.streamlines.length; s++) {
+      const nPts = bundle.streamlines[s].numPoints;
+      if (nPts > 1) {
+        totalSegments += (nPts - 1);
       }
-
-      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-      // Determine color
-      let color: [number, number, number];
-
-      switch (colorMapping.type) {
-        case 'length': {
-          const length = streamline.length || calculateStreamlineLength(points);
-          color = getColorFromMap(length, valueMin, valueMax, colorMapping.colormap as Colormap);
-          break;
-        }
-        case 'fa': {
-          const fa = streamline.fa || 0;
-          color = getColorFromMap(fa, valueMin, valueMax, colorMapping.colormap as Colormap);
-          break;
-        }
-        case 'orientation': {
-          const orientation = streamline.orientation || calculateMeanOrientation(points);
-          // RGB encoding: abs(x), abs(y), abs(z)
-          color = [
-            Math.abs(orientation[0]),
-            Math.abs(orientation[1]),
-            Math.abs(orientation[2]),
-          ];
-          break;
-        }
-        case 'custom': {
-          color = streamline.color || [1, 1, 1];
-          break;
-        }
-        default:
-          color = [1, 1, 1];
-      }
-
-      geometries.push(geometry);
-      colors.push(new THREE.Color(color[0], color[1], color[2]));
-    });
-
-    return { geometries, colors };
-  }, [bundle, settings.colorMapping]);
-
-  // Level of Detail - reduce streamlines based on camera distance
-  useFrame(({ camera }) => {
-    if (!groupRef.current) return;
-
-    const distance = camera.position.length();
-    let visibleCount = geometries.length;
-
-    switch (settings.levelOfDetail) {
-      case 'low':
-        visibleCount = Math.floor(geometries.length * 0.2);
-        break;
-      case 'medium':
-        if (distance > 300) {
-          visibleCount = Math.floor(geometries.length * 0.5);
-        } else if (distance > 150) {
-          visibleCount = Math.floor(geometries.length * 0.75);
-        }
-        break;
-      case 'high':
-        // Show all
-        break;
     }
 
-    // Update visibility
-    groupRef.current.children.forEach((child, index) => {
-      child.visible = index < visibleCount;
-    });
-  });
+    if (totalSegments === 0) return null;
 
-  const lineObjects = useMemo(() => {
-    return geometries.map((geometry, index) => {
-      const material = new THREE.LineBasicMaterial({
-        color: colors[index],
-        opacity: settings.streamlineOpacity,
-        transparent: settings.streamlineOpacity < 1,
-        linewidth: settings.streamlineWidth,
-      });
-      return new THREE.Line(geometry, material);
+    const positions = new Float32Array(totalSegments * 2 * 3);
+    const colors = new Float32Array(totalSegments * 2 * 3);
+
+    let posIdx = 0;
+    let colIdx = 0;
+
+    for (let s = 0; s < bundle.streamlines.length; s++) {
+      const sl = bundle.streamlines[s];
+      const pts = sl.points;
+      const nPts = sl.numPoints;
+      if (nPts < 2) continue;
+
+      for (let i = 0; i < nPts - 1; i++) {
+        const x1 = pts[i * 3];
+        const y1 = pts[i * 3 + 1];
+        const z1 = pts[i * 3 + 2];
+
+        const x2 = pts[(i + 1) * 3];
+        const y2 = pts[(i + 1) * 3 + 1];
+        const z2 = pts[(i + 1) * 3 + 2];
+
+        // Segment start
+        positions[posIdx++] = x1;
+        positions[posIdx++] = y1;
+        positions[posIdx++] = z1;
+
+        // Segment end
+        positions[posIdx++] = x2;
+        positions[posIdx++] = y2;
+        positions[posIdx++] = z2;
+
+        // Directional RGB (tangent of this segment)
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const dz = z2 - z1;
+        const len = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1.0;
+
+        // Canonical diffusion-MRI color mapping:
+        // Red = Left-Right (X), Green = Anterior-Posterior (Y), Blue = Superior-Inferior (Z)
+        const r = Math.min(1.0, Math.max(0.05, Math.abs(dx / len)));
+        const g = Math.min(1.0, Math.max(0.05, Math.abs(dy / len)));
+        const b = Math.min(1.0, Math.max(0.05, Math.abs(dz / len)));
+
+        // Both segment vertices receive the segment directional color
+        colors[colIdx++] = r;
+        colors[colIdx++] = g;
+        colors[colIdx++] = b;
+
+        colors[colIdx++] = r;
+        colors[colIdx++] = g;
+        colors[colIdx++] = b;
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geo.computeBoundingSphere();
+    geo.computeBoundingBox();
+
+    return geo;
+  }, [bundle]);
+
+  const material = useMemo(() => {
+    return new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: Math.max(0.2, settings.streamlineOpacity ?? 0.85),
+      depthWrite: false,
     });
-  }, [geometries, colors, settings.streamlineOpacity, settings.streamlineWidth]);
+  }, [settings.streamlineOpacity]);
+
+  if (!geometry) return null;
 
   return (
-    <group ref={groupRef}>
-      {lineObjects.map((lineObj, index) => (
-        <primitive key={index} object={lineObj} />
-      ))}
+    <group>
+      <lineSegments geometry={geometry} material={material} />
     </group>
   );
 }

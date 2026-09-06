@@ -45,6 +45,67 @@ export default function Controls() {
               )}
             </div>
 
+            {/* Quick Surface Presets */}
+            <div className="mt-3">
+              <label className="block text-[11px] font-medium text-slate-400 mb-1.5 uppercase tracking-wider">Surface Preset</label>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateViewerSettings({
+                      brainSurfaceOpacity: 0.35,
+                      brainSurfaceWireframe: false,
+                      brainRoughness: 0.35,
+                      brainSurfaceColor: '#cbd5e1',
+                    })
+                  }
+                  className={`px-2 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                    !viewerSettings.brainSurfaceWireframe && viewerSettings.brainSurfaceOpacity < 0.9
+                      ? 'bg-primary-500/20 border-primary-500/60 text-primary-200 shadow-sm'
+                      : 'bg-white/[0.04] border-white/[0.08] text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Glass
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateViewerSettings({
+                      brainSurfaceOpacity: 1.0,
+                      brainSurfaceWireframe: false,
+                      brainRoughness: 0.6,
+                      brainSurfaceColor: '#e2d9d2',
+                    })
+                  }
+                  className={`px-2 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                    !viewerSettings.brainSurfaceWireframe && viewerSettings.brainSurfaceOpacity >= 0.9
+                      ? 'bg-primary-500/20 border-primary-500/60 text-primary-200 shadow-sm'
+                      : 'bg-white/[0.04] border-white/[0.08] text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Solid
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateViewerSettings({
+                      brainSurfaceOpacity: 0.5,
+                      brainSurfaceWireframe: true,
+                      brainRoughness: 0.2,
+                      brainSurfaceColor: '#00e5ff',
+                    })
+                  }
+                  className={`px-2 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                    viewerSettings.brainSurfaceWireframe
+                      ? 'bg-primary-500/20 border-primary-500/60 text-primary-200 shadow-sm'
+                      : 'bg-white/[0.04] border-white/[0.08] text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Wireframe
+                </button>
+              </div>
+            </div>
+
             {/* Opacity */}
             <div className="mt-3">
               <label className="block text-sm font-medium mb-2">
@@ -343,13 +404,14 @@ export default function Controls() {
             onChange={(e) => updateViewerSettings({ backgroundColor: e.target.value })}
             className="w-10 h-8 rounded cursor-pointer bg-transparent"
           />
-          <div className="flex gap-1">
-            {['#1a1a2e', '#000000', '#0a0a1a', '#1a2a1a'].map((c) => (
+          <div className="flex gap-1.5">
+            {['#080b11', '#0d131f', '#000000', '#0f172a'].map((c) => (
               <button
                 key={c}
                 onClick={() => updateViewerSettings({ backgroundColor: c })}
-                className={`w-6 h-6 rounded border ${viewerSettings.backgroundColor === c ? 'border-primary-400' : 'border-white/20'}`}
+                className={`w-6 h-6 rounded border transition-transform active:scale-95 ${viewerSettings.backgroundColor === c ? 'border-primary-400 scale-110 shadow-sm' : 'border-white/20'}`}
                 style={{ backgroundColor: c }}
+                title={`Set background to ${c}`}
               />
             ))}
           </div>
