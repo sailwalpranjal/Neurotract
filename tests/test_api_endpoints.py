@@ -81,6 +81,10 @@ class TestAPIEndpoints:
             report = client.post("/api/uploads/validate", json={"upload_id": session_id})
             assert report.status_code == 200
             assert report.json()["ready_for_pipeline"] is True
+            discovery = client.post("/api/uploads/discover", json={"upload_id": session_id})
+            assert discovery.status_code == 200
+            assert discovery.json()["summary"]["compatible"] == 1
+            assert discovery.json()["datasets"][0]["id"] == "dwi.nii.gz"
         finally:
             shutil.rmtree("uploads/" + session_id, ignore_errors=True)
 

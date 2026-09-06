@@ -66,13 +66,15 @@ Open `http://localhost:3000`. The API reference is available at `http://localhos
 
 ## Upload and process a dataset
 
-Select all three files in **Upload New Data**:
+Use **Choose dataset files** for one acquisition, or **Choose a dataset folder** to inspect a folder tree. Folder uploads preserve subfolders and produce a compatibility card for every discovered DWI. Select any number of ready cards and queue them together.
+
+For a single acquisition, select all three files:
 
 1. One 4D DWI NIfTI: `.nii` or `.nii.gz`
 2. The corresponding b-values: `.bval` or `.bvals`
 3. The corresponding b-vectors: `.bvec` or `.bvecs`
 
-The application places them in one upload session, checks file integrity, volume/gradient compatibility, b0 presence, and gradient shape, then shows **Validated and ready for processing** only when those checks pass. Select **Start pipeline** to queue the real processing job and follow progress in the execution panel.
+The application places them in one upload session, checks file integrity, volume/gradient compatibility, b0 presence, and gradient shape, then shows **READY** only when those checks pass. Explicitly labelled files such as `scan_part-01.nii.gz` and `scan_part-02.nii.gz` may be merged only after every part passes validation and has matching spatial geometry. Separate runs and acquisitions are never merged automatically.
 
 Source datasets, uploads, output artifacts, job state, and logs are excluded from Git. Bring your own appropriately authorised research data.
 

@@ -39,7 +39,7 @@ The browser and API are separately deployable. The API owns uploads, jobs, gener
 
 ### Browser upload workflow
 
-The web upload panel requires one 4D diffusion-weighted NIfTI file (`.nii` or `.nii.gz`) and the matching b-values (`.bval` or `.bvals`) and b-vectors (`.bvec` or `.bvecs`). All files are stored in one isolated upload session.
+The web upload panel accepts either one acquisition or a complete folder tree. It preserves relative folders within one isolated upload session and finds every 4D diffusion-weighted NIfTI file (`.nii` or `.nii.gz`) with matching b-values (`.bval` or `.bvals`) and b-vectors (`.bvec` or `.bvecs`). Each candidate receives its own validation card, so users can select one or several compatible acquisitions for processing.
 
 ```mermaid
 sequenceDiagram
@@ -56,7 +56,7 @@ sequenceDiagram
   P->>A: Save artifacts and provenance
 ```
 
-Validation rejects missing files, empty or corrupt NIfTI images, non-4D volumes, gradient tables that do not match the volume count, missing b0 volumes, and malformed b-vectors. Vector norm issues are reported as warnings. A dataset is only shown as ready after the validation report is valid.
+Validation rejects missing files, empty or corrupt NIfTI images, non-4D volumes, gradient tables that do not match the volume count, missing b0 volumes, and malformed b-vectors. Vector norm issues are reported as warnings. A dataset is only shown as ready after the validation report is valid. Numbered `part` files are listed as a possible series, but are merged only by an explicit user action after matching spatial geometry and per-part validation; runs and acquisitions are never silently combined.
 
 ### Pipeline stages
 

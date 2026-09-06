@@ -74,11 +74,13 @@ class APIClient {
   async uploadFile(
     file: File,
     onProgress?: (progress: number) => void,
-    uploadId?: string
+    uploadId?: string,
+    relativePath?: string
   ): Promise<{ file_id: string; filename: string }> {
     const formData = new FormData();
     formData.append('file', file);
     if (uploadId) formData.append('upload_id', uploadId);
+    if (relativePath) formData.append('relative_path', relativePath);
 
     const response = await this.client.post('/upload', formData, {
       headers: {
@@ -105,10 +107,16 @@ class APIClient {
     return response.data;
   }
 
-  async submitUploadedDataset(uploadId: string, subjectId?: string): Promise<Job> {
+  async discoverUploadedDatasets(uploadId: string): Promise<UploadedDatasetDiscovery> {
+    const response = await this.client.post('/api/uploads/discover', { upload_id: uploadId });
+    return response.data;
+  }
+
+  async submitUploadedDataset(uploadId: string, datasetId?: string, mergeDatasetIds: string[] = []): Promise<Job> {
     const response = await this.client.post('/api/uploads/submit', {
       upload_id: uploadId,
-      subject_id: subjectId,
+      dataset_id: datasetId,
+      merge_dataset_ids: mergeDatasetIds,
       mode: 'full',
     });
     return response.data;
@@ -391,6 +399,34 @@ class APIClient {
 
     return close;
   }
+}
+
+export interface UploadedDatasetCandidate {
+  id: string;
+  label: string;
+  relative_directory: string;
+  files: string[];
+  is_valid: boolean;
+  errors: string[];
+  warnings: string[];
+  dimensions?: number[];
+  num_volumes?: number;
+  part_group?: string | null;
+  part_index?: number | null;
+}
+
+export interface UploadedPartGroup {
+  id: string;
+  label: string;
+  datasets: UploadedDatasetCandidate[];
+  can_merge: boolean;
+}
+
+export interface UploadedDatasetDiscovery {
+  upload_id: string;
+  datasets: UploadedDatasetCandidate[];
+  part_groups: UploadedPartGroup[];
+  summary: { total: number; compatible: number; incompatible: number };
 }
 
 // Singleton instance

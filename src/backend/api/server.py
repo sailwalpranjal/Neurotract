@@ -13,9 +13,10 @@ from typing import Optional, List, Dict, Any
 import uvicorn
 import json
 import time
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import logging
 import os
+import re
 from datetime import datetime
 import numpy as np
 import nibabel as nib
@@ -146,6 +147,8 @@ class UploadedDatasetSubmission(UploadedDatasetParams):
     tractography: Dict[str, Any] = Field(default_factory=dict)
     connectome: Dict[str, Any] = Field(default_factory=dict)
     rng_seed: Optional[int] = 42
+    dataset_id: Optional[str] = None
+    merge_dataset_ids: List[str] = Field(default_factory=list)
 
 
 def _job_to_frontend(j: dict) -> dict:
@@ -228,35 +231,143 @@ def _upload_directory(upload_id: str) -> Path:
         raise HTTPException(status_code=422, detail="upload_id must be a UUID")
 
 
-def _uploaded_dataset_paths(upload_id: str) -> tuple[Path, Optional[Path], Optional[Path]]:
-    """Locate the single DWI and its gradient files in an upload session."""
+def _is_dwi_file(path: Path) -> bool:
+    return path.name.lower().endswith((".nii", ".nii.gz")) and "aparc" not in path.name.lower()
+
+
+def _dwi_stem(path: Path) -> str:
+    return path.name[:-7] if path.name.lower().endswith(".nii.gz") else path.stem
+
+
+def _matching_sidecars(dwi: Path) -> tuple[Optional[Path], Optional[Path]]:
+    """Find only gradient tables belonging to this DWI, never a neighbouring scan."""
+    stem = _dwi_stem(dwi)
+    bval = next((dwi.parent / name for name in (f"{stem}.bval", f"{stem}.bvals") if (dwi.parent / name).is_file()), None)
+    bvec = next((dwi.parent / name for name in (f"{stem}.bvec", f"{stem}.bvecs") if (dwi.parent / name).is_file()), None)
+    # BIDS commonly uses data.nii.gz beside bvals/bvecs without a shared stem.
+    if bval is None:
+        candidates = [p for p in dwi.parent.iterdir() if p.is_file() and p.name.lower() in ("bval", "bvals", "grad.bval", "grad.bvals")]
+        if len(candidates) == 1:
+            bval = candidates[0]
+    if bvec is None:
+        candidates = [p for p in dwi.parent.iterdir() if p.is_file() and p.name.lower() in ("bvec", "bvecs", "grad.bvec", "grad.bvecs")]
+        if len(candidates) == 1:
+            bvec = candidates[0]
+    return bval, bvec
+
+
+def _part_group(path: Path) -> tuple[Optional[str], Optional[int]]:
+    """Identify explicit file parts; run/acquisition numbers are intentionally not merged."""
+    match = re.match(r"^(.*?)(?:[_-]part[_-]?(\d+))$", _dwi_stem(path), re.IGNORECASE)
+    if not match:
+        return None, None
+    return str(path.parent / match.group(1)), int(match.group(2))
+
+
+def _discover_uploaded_datasets(upload_id: str) -> List[Dict[str, Any]]:
+    """Build validation-backed candidates from a recursively uploaded folder."""
     directory = _upload_directory(upload_id)
     if not directory.is_dir():
         raise HTTPException(status_code=404, detail="Upload session not found")
+    candidates = []
+    for dwi in sorted((path for path in directory.rglob("*") if path.is_file() and _is_dwi_file(path)), key=lambda path: str(path).lower()):
+        bval, bvec = _matching_sidecars(dwi)
+        report = DatasetValidator().validate_dwi_dataset(dwi, bval, bvec)
+        group, part_index = _part_group(dwi)
+        group_id = None
+        if group:
+            group_path = Path(group)
+            group_id = str(group_path.relative_to(directory).as_posix())
+        candidates.append({
+            "id": dwi.relative_to(directory).as_posix(),
+            "label": dwi.name,
+            "relative_directory": dwi.parent.relative_to(directory).as_posix() or ".",
+            "files": [str(path.relative_to(directory).as_posix()) for path in [dwi, bval, bvec] if path],
+            "is_valid": report.is_valid,
+            "errors": report.errors,
+            "warnings": report.warnings,
+            "dimensions": report.dimensions,
+            "num_volumes": report.num_volumes,
+            "part_group": group_id,
+            "part_index": part_index,
+        })
+    return candidates
 
-    files = [path for path in directory.iterdir() if path.is_file()]
-    dwi_files = [path for path in files if path.name.lower().endswith((".nii", ".nii.gz"))]
-    if len(dwi_files) != 1:
-        raise HTTPException(
-            status_code=422,
-            detail="Upload exactly one DWI NIfTI file (.nii or .nii.gz) with its .bval and .bvec files.",
-        )
-    dwi = dwi_files[0]
-    dwi_stem = dwi.name[:-7] if dwi.name.lower().endswith(".nii.gz") else dwi.stem
-    bval = next((path for path in files if path.name in (f"{dwi_stem}.bval", f"{dwi_stem}.bvals")), None)
-    bvec = next((path for path in files if path.name in (f"{dwi_stem}.bvec", f"{dwi_stem}.bvecs")), None)
-    if bval is None or bvec is None:
-        missing = []
-        if bval is None:
-            missing.append(f"{dwi_stem}.bval or {dwi_stem}.bvals")
-        if bvec is None:
-            missing.append(f"{dwi_stem}.bvec or {dwi_stem}.bvecs")
-        raise HTTPException(status_code=422, detail=f"Missing matching gradient file(s): {', '.join(missing)}")
+
+def _uploaded_dataset_paths(upload_id: str, dataset_id: Optional[str] = None) -> tuple[Path, Path, Path]:
+    """Resolve one discovered dataset by its opaque relative candidate ID."""
+    candidates = _discover_uploaded_datasets(upload_id)
+    if not candidates:
+        raise HTTPException(status_code=422, detail="No diffusion NIfTI files were found in this upload.")
+    selected = next((candidate for candidate in candidates if candidate["id"] == dataset_id), None) if dataset_id else (candidates[0] if len(candidates) == 1 else None)
+    if selected is None:
+        raise HTTPException(status_code=422, detail="Choose one compatible dataset from the discovered upload list.")
+    if not selected["is_valid"]:
+        raise HTTPException(status_code=422, detail={"message": f"{selected['label']} is not ready for processing.", "errors": selected["errors"]})
+    directory = _upload_directory(upload_id)
+    dwi = directory / selected["id"]
+    bval, bvec = _matching_sidecars(dwi)
+    assert bval is not None and bvec is not None
     return dwi, bval, bvec
 
 
+def _merge_uploaded_parts(upload_id: str, dataset_ids: List[str]) -> tuple[Path, Path, Path]:
+    """Concatenate explicitly labelled DWI parts after strict geometry and gradient checks."""
+    if len(dataset_ids) < 2:
+        raise HTTPException(status_code=422, detail="Choose at least two labelled parts to create a merged dataset.")
+    candidates = {candidate["id"]: candidate for candidate in _discover_uploaded_datasets(upload_id)}
+    selected = [candidates.get(dataset_id) for dataset_id in dataset_ids]
+    if any(candidate is None for candidate in selected):
+        raise HTTPException(status_code=422, detail="One or more selected parts are not present in this upload session.")
+    selected = [candidate for candidate in selected if candidate is not None]
+    group_ids = {candidate["part_group"] for candidate in selected}
+    indices = [candidate["part_index"] for candidate in selected]
+    if len(group_ids) != 1 or None in group_ids or len(set(indices)) != len(indices):
+        raise HTTPException(status_code=422, detail="Only uniquely numbered files with the same explicit part label can be merged.")
+    if not all(candidate["is_valid"] for candidate in selected):
+        raise HTTPException(status_code=422, detail="Every selected part must pass individual dataset validation before merging.")
+
+    directory = _upload_directory(upload_id)
+    selected.sort(key=lambda candidate: candidate["part_index"])
+    paths = [_uploaded_dataset_paths(upload_id, candidate["id"]) for candidate in selected]
+    images = [nib.load(str(dwi)) for dwi, _, _ in paths]
+    reference = images[0]
+    if any(image.shape[:3] != reference.shape[:3] or not np.allclose(image.affine, reference.affine) for image in images[1:]):
+        raise HTTPException(status_code=422, detail="Parts cannot be merged because their spatial dimensions or affines differ.")
+
+    try:
+        volumes = [image.get_fdata(dtype=np.float32) for image in images]
+        merged_data = np.concatenate(volumes, axis=3)
+        bvals = [np.loadtxt(str(bval)).reshape(-1) for _, bval, _ in paths]
+        bvecs = []
+        for _, _, bvec in paths:
+            raw = np.loadtxt(str(bvec))
+            bvecs.append(raw if raw.shape[0] == 3 else raw.T)
+        derived = directory / "derived"
+        derived.mkdir(exist_ok=True)
+        base_name = Path(next(iter(group_ids))).name
+        merged_id = str(__import__("uuid").uuid4())[:8]
+        dwi_path = derived / f"{base_name}_merged_{merged_id}.nii.gz"
+        bval_path = derived / f"{base_name}_merged_{merged_id}.bval"
+        bvec_path = derived / f"{base_name}_merged_{merged_id}.bvec"
+        nib.save(nib.Nifti1Image(merged_data, reference.affine, reference.header), str(dwi_path))
+        np.savetxt(str(bval_path), np.concatenate(bvals)[None, :], fmt="%.8g")
+        np.savetxt(str(bvec_path), np.concatenate(bvecs, axis=1), fmt="%.8g")
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Could not merge selected parts: {exc}")
+
+    report = DatasetValidator().validate_dwi_dataset(dwi_path, bval_path, bvec_path)
+    if not report.is_valid:
+        raise HTTPException(status_code=422, detail={"message": "Merged dataset did not pass validation.", "errors": report.errors})
+    return dwi_path, bval_path, bvec_path
+
+
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...), upload_id: Optional[str] = Form(None)):
+async def upload_file(
+    file: UploadFile = File(...),
+    upload_id: Optional[str] = Form(None),
+    relative_path: Optional[str] = Form(None),
+):
     """Store one member of a DWI upload session for later validation and execution."""
     import uuid
     import shutil
@@ -265,11 +376,15 @@ async def upload_file(file: UploadFile = File(...), upload_id: Optional[str] = F
     file_dir = _upload_directory(file_id)
     file_dir.mkdir(parents=True, exist_ok=True)
 
-    filename = Path(file.filename or "upload").name
+    relative = PurePosixPath(relative_path or file.filename or "upload")
+    if relative.is_absolute() or ".." in relative.parts:
+        raise HTTPException(status_code=422, detail="relative_path must stay within the upload session")
+    filename = relative.name
     allowed_suffixes = (".nii", ".nii.gz", ".bval", ".bvals", ".bvec", ".bvecs")
     if not filename.lower().endswith(allowed_suffixes):
         raise HTTPException(status_code=422, detail="Supported upload files are .nii/.nii.gz, .bval, and .bvec.")
-    file_path = file_dir / filename
+    file_path = file_dir.joinpath(*relative.parts)
+    file_path.parent.mkdir(parents=True, exist_ok=True)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
@@ -281,6 +396,7 @@ async def upload_file(file: UploadFile = File(...), upload_id: Optional[str] = F
         "filename": file.filename,
         "size_bytes": file_size,
         "path": str(file_path),
+        "relative_path": relative.as_posix(),
     }
 
 
@@ -293,6 +409,34 @@ async def validate_uploaded_dataset(params: UploadedDatasetParams):
     result["upload_id"] = params.upload_id
     result["ready_for_pipeline"] = report.is_valid
     return result
+
+
+@app.post("/api/uploads/discover")
+async def discover_uploaded_datasets(params: UploadedDatasetParams):
+    """Find and validate each DWI dataset in a recursively uploaded folder."""
+    datasets = _discover_uploaded_datasets(params.upload_id)
+    part_groups: Dict[str, List[Dict[str, Any]]] = {}
+    for dataset in datasets:
+        if dataset["part_group"]:
+            part_groups.setdefault(dataset["part_group"], []).append(dataset)
+    return {
+        "upload_id": params.upload_id,
+        "datasets": datasets,
+        "part_groups": [
+            {
+                "id": key,
+                "label": Path(key).name,
+                "datasets": sorted(value, key=lambda item: item["part_index"] or 0),
+                "can_merge": len(value) > 1 and all(item["is_valid"] for item in value),
+            }
+            for key, value in part_groups.items()
+        ],
+        "summary": {
+            "total": len(datasets),
+            "compatible": sum(1 for dataset in datasets if dataset["is_valid"]),
+            "incompatible": sum(1 for dataset in datasets if not dataset["is_valid"]),
+        },
+    }
 
 
 def _resolve_dataset_paths(dwi: str, bval: Optional[str] = None, bvec: Optional[str] = None):
@@ -452,7 +596,10 @@ def _queue_job(config: JobConfig, background_tasks: BackgroundTasks):
 @app.post("/api/uploads/submit")
 async def submit_uploaded_dataset(params: UploadedDatasetSubmission, background_tasks: BackgroundTasks):
     """Validate a browser upload again, then schedule it in the real pipeline."""
-    dwi, bval, bvec = _uploaded_dataset_paths(params.upload_id)
+    if params.merge_dataset_ids:
+        dwi, bval, bvec = _merge_uploaded_parts(params.upload_id, params.merge_dataset_ids)
+    else:
+        dwi, bval, bvec = _uploaded_dataset_paths(params.upload_id, params.dataset_id)
     report = DatasetValidator().validate_dwi_dataset(dwi, bval, bvec)
     if not report.is_valid:
         raise HTTPException(
