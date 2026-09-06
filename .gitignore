@@ -80,6 +80,7 @@ tmp/
 # Node.js
 node_modules/
 .next/
+.next-dev/
 out/
 
 # Uploads & runtime data
