@@ -46,13 +46,14 @@ NeuroTract is an open-source diffusion MRI tractography and structural connectom
 
 1. [x] Phase 0: Repository Audit & Knowledge Base
 2. [x] Phase 1: Scientific Truth Audit (FA formula correction)
-3. [ ] Phase 2: Data Standardization & Validation Layer
-4. [ ] Phase 3: Authoritative Demo Dataset Management
-5. [ ] Phase 4: Scientific Pipeline Hardening & Provenance Tracking
-6. [ ] Phase 5: Real-Time SSE Execution Engine
-7. [ ] Phase 6: Live Analysis Observatory
-8. [ ] Phase 7: Synchronized 2D/3D Anatomical & Connectome Viewer
-9. [ ] Phase 8-10: Advanced Scientific Visualizations & Provenance Inspector
-10. [ ] Phase 11-12: Parameter Sensitivity Lab & Validation Center
-11. [ ] Phase 13-14: Performance Optimization & Reproducible Reporting
-12. [ ] Phase 15-23: Frontend/Backend Hardening, E2E Tests, and Final Verification
+3. [x] Phase 2: Data Standardization & Validation Layer
+4. [x] Phase 3: Authoritative Demo Dataset Management (Stanford HARDI SUB1 & SUB2)
+5. [x] Phase 4: Scientific Pipeline Hardening & Provenance Tracking
+6. [x] Phase 5: Real-Time SSE Execution Engine (Starlette threadpool background worker)
+7. [x] Phase 6: Live Analysis Observatory with 1-click execution trigger
+8. [x] Phase 7: Synchronized 2D/3D Anatomical & Connectome Viewer
+9. [x] Phase 8-10: Advanced Scientific Visualizations & Provenance Inspector
+10. [x] Phase 11-12: Parameter Sensitivity Lab & Validation Center (DIPY / NetworkX numerical concordance)
+11. [x] Phase 13-14: Performance Optimization & Reproducible Reporting (HTML export)
+12. [x] Phase 15-23: Frontend/Backend Hardening, Run Comparison Suite (A vs B), E2E Tests, and Final Verification
+
