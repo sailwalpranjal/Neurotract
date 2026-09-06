@@ -241,9 +241,18 @@ def _uploaded_dataset_paths(upload_id: str) -> tuple[Path, Optional[Path], Optio
             status_code=422,
             detail="Upload exactly one DWI NIfTI file (.nii or .nii.gz) with its .bval and .bvec files.",
         )
-    bval = next((path for path in files if path.name.lower().endswith((".bval", ".bvals"))), None)
-    bvec = next((path for path in files if path.name.lower().endswith((".bvec", ".bvecs"))), None)
-    return dwi_files[0], bval, bvec
+    dwi = dwi_files[0]
+    dwi_stem = dwi.name[:-7] if dwi.name.lower().endswith(".nii.gz") else dwi.stem
+    bval = next((path for path in files if path.name in (f"{dwi_stem}.bval", f"{dwi_stem}.bvals")), None)
+    bvec = next((path for path in files if path.name in (f"{dwi_stem}.bvec", f"{dwi_stem}.bvecs")), None)
+    if bval is None or bvec is None:
+        missing = []
+        if bval is None:
+            missing.append(f"{dwi_stem}.bval or {dwi_stem}.bvals")
+        if bvec is None:
+            missing.append(f"{dwi_stem}.bvec or {dwi_stem}.bvecs")
+        raise HTTPException(status_code=422, detail=f"Missing matching gradient file(s): {', '.join(missing)}")
+    return dwi, bval, bvec
 
 
 @app.post("/upload")
@@ -772,33 +781,24 @@ def process_job(job_id: str, config: JobConfig):
             parc_img = nib.load(str(parc_file))
             parcellation = parc_img.get_fdata().astype(int)
             n_parcels = int(np.max(parcellation)) + 1
+            builder = ConnectomeBuilder(parcellation=parcellation, n_parcels=n_parcels, affine=dwi_data.affine)
+            connectome = builder.build_connectome(streamlines, weighting='count')
+            connectome_path = output_dir / "connectome.npy"
+            np.save(str(connectome_path), connectome)
+            np.savetxt(str(output_dir / "connectome.csv"), connectome, delimiter=",", fmt="%.4f")
+            emit_progress("connectome", 0.94, f"Connectome built ({int(np.sum(connectome > 0)/2):,} structural edges)")
+
+            # Step 8: Graph Theory Metrics
+            emit_progress("graph_metrics", 0.96, "Computing graph-theoretical topological network metrics...")
+            metrics_calc = ConnectomeMetrics(connectome)
+            metrics = metrics_calc.compute_all_metrics()
         else:
-            # Synthetic 89 parcel grid aligned to brain mask
-            parcellation = np.zeros(brain_mask.shape, dtype=int)
-            grid = 10
-            pid = 1
-            for x in range(0, brain_mask.shape[0], grid):
-                for y in range(0, brain_mask.shape[1], grid):
-                    for z in range(0, brain_mask.shape[2], grid):
-                        if np.any(brain_mask[x:x+grid, y:y+grid, z:z+grid]):
-                            parcellation[x:x+grid, y:y+grid, z:z+grid] = pid
-                            pid += 1
-                            if pid > 89:
-                                break
-            n_parcels = 89
-
-        builder = ConnectomeBuilder(parcellation=parcellation, n_parcels=n_parcels, affine=dwi_data.affine)
-        connectome = builder.build_connectome(streamlines, weighting='count')
-
-        connectome_path = output_dir / "connectome.npy"
-        np.save(str(connectome_path), connectome)
-        np.savetxt(str(output_dir / "connectome.csv"), connectome, delimiter=",", fmt="%.4f")
-        emit_progress("connectome", 0.94, f"Connectome built ({int(np.sum(connectome > 0)/2):,} structural edges)")
-
-        # Step 8: Graph Theory Metrics
-        emit_progress("graph_metrics", 0.96, "Computing graph-theoretical topological network metrics...")
-        metrics_calc = ConnectomeMetrics(connectome)
-        metrics = metrics_calc.compute_all_metrics()
+            # A fabricated parcel grid would make the graph results scientifically invalid.
+            connectome = None
+            connectome_path = None
+            metrics = {}
+            emit_progress("connectome", 0.94, "Connectome skipped: no anatomical parcellation was supplied.")
+            emit_progress("graph_metrics", 0.96, "Graph metrics skipped: connectome requires an anatomical parcellation.")
 
         def _to_serializable(val):
             if isinstance(val, np.ndarray):
@@ -813,10 +813,12 @@ def process_job(job_id: str, config: JobConfig):
                 return [_to_serializable(v) for v in val]
             return val
 
-        metrics_serializable = _to_serializable(metrics)
-        metrics_path = output_dir / "metrics.json"
-        with open(metrics_path, "w") as f:
-            json.dump(metrics_serializable, f, indent=2)
+        metrics_path = None
+        if connectome is not None:
+            metrics_serializable = _to_serializable(metrics)
+            metrics_path = output_dir / "metrics.json"
+            with open(metrics_path, "w") as f:
+                json.dump(metrics_serializable, f, indent=2)
 
         # Register metric provenance
         for m_key in ["global_efficiency", "clustering_coefficient", "density", "transitivity", "assortativity"]:
@@ -847,13 +849,14 @@ def process_job(job_id: str, config: JobConfig):
         jobs_db[job_id]["message"] = "Analysis completed successfully"
         jobs_db[job_id]["updated_at"] = datetime.utcnow().isoformat() + "Z"
         jobs_db[job_id]["results"] = {
-            "connectome_file": str(connectome_path),
+            "connectome_file": str(connectome_path) if connectome_path else None,
             "streamlines_file": str(streamlines_path),
             "fod_file": str(fod_path),
-            "metrics_file": str(metrics_path),
+            "metrics_file": str(metrics_path) if metrics_path else None,
             "report_file": str(report_path),
             "num_streamlines": len(streamlines),
-            "num_edges": int(np.sum(connectome > 0) / 2),
+            "num_edges": int(np.sum(connectome > 0) / 2) if connectome is not None else None,
+            "connectome_status": "completed" if connectome is not None else "skipped_no_parcellation",
             "metrics": {
                 "global_efficiency": float(metrics.get("global", {}).get("global_efficiency", 0)),
                 "clustering_coefficient": float(metrics.get("global", {}).get("clustering_coefficient", 0)),

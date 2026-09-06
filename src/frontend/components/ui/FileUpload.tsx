@@ -24,6 +24,20 @@ export default function FileUpload({ onUploadComplete }: FileUploadProps) {
       addNotification({ type: 'warning', title: 'Dataset files required', message: 'Select one DWI NIfTI file together with its .bval and .bvec files.', duration: 5000 });
       return;
     }
+    const dwiFiles = validFiles.filter((file) => file.name.toLowerCase().endsWith('.nii') || file.name.toLowerCase().endsWith('.nii.gz'));
+    if (dwiFiles.length !== 1) {
+      addNotification({ type: 'warning', title: 'Select one DWI file', message: 'Each upload session must contain exactly one .nii or .nii.gz diffusion volume.', duration: 6000 });
+      return;
+    }
+    const dwi = dwiFiles[0];
+    const stem = dwi.name.toLowerCase().endsWith('.nii.gz') ? dwi.name.slice(0, -7) : dwi.name.slice(0, -4);
+    const hasBval = validFiles.some((file) => file.name === `${stem}.bval` || file.name === `${stem}.bvals`);
+    const hasBvec = validFiles.some((file) => file.name === `${stem}.bvec` || file.name === `${stem}.bvecs`);
+    if (!hasBval || !hasBvec) {
+      const missing = [!hasBval && `${stem}.bval or ${stem}.bvals`, !hasBvec && `${stem}.bvec or ${stem}.bvecs`].filter(Boolean).join('; ');
+      addNotification({ type: 'warning', title: 'Matching gradients missing', message: `For ${dwi.name}, also select ${missing}.`, duration: 7000 });
+      return;
+    }
     const sessionId = crypto.randomUUID();
     setUploadId(sessionId);
     setReport(null);
