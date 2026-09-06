@@ -990,14 +990,29 @@ async def get_result_connectome(subject_id: str):
 @app.get("/results/{subject_id}/slices")
 async def get_subject_slices_endpoint(
     subject_id: str,
-    axial: float = 0.5,
-    coronal: float = 0.5,
-    sagittal: float = 0.5,
-    modality: str = "fa"
+    axial: Optional[float] = None,
+    coronal: Optional[float] = None,
+    sagittal: Optional[float] = None,
+    x: Optional[float] = None,
+    y: Optional[float] = None,
+    z: Optional[float] = None,
+    modality: Optional[str] = None,
+    volume_type: Optional[str] = None,
+    colormap: Optional[str] = None,
 ):
-    """Return real 2D orthogonal MRI slice images (base64 PNG) for synchronized viewer."""
+    """Return real 2D orthogonal MRI slice images (base64 PNG) and scalar telemetry for synchronized viewer."""
+    target_mod = (volume_type or modality or "fa").lower()
     try:
-        return get_subject_slices(subject_id, axial, coronal, sagittal, modality)
+        return get_subject_slices(
+            subject_id=subject_id,
+            axial_pct=axial,
+            coronal_pct=coronal,
+            sagittal_pct=sagittal,
+            x=x,
+            y=y,
+            z=z,
+            modality=target_mod,
+        )
     except Exception as e:
         logger.error(f"Failed to extract slices for {subject_id}: {e}")
         raise HTTPException(status_code=404, detail=str(e))

@@ -318,17 +318,38 @@ export interface OrthogonalSlicePlane {
   percentage: number;
   plane: string;
   dims: [number, number];
+  scalar_matrix?: number[][];
+}
+
+export interface ParcellationVoxelInfo {
+  id: number;
+  name: string;
+  abbreviation?: string;
+  hemisphere?: string;
+  lobe?: string;
+  description?: string;
 }
 
 export interface OrthogonalSlicesData {
   volume_shape: [number, number, number];
   voxel_size_mm: [number, number, number];
   intensity_range: [number, number];
+  modality?: string;
+  modality_name?: string;
+  unit?: string;
+  description?: string;
   indices: {
     axial: number;
     coronal: number;
     sagittal: number;
   };
+  physical_mm?: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  current_voxel_value?: number;
+  parcellation?: ParcellationVoxelInfo;
   slices: {
     axial: OrthogonalSlicePlane;
     coronal: OrthogonalSlicePlane;

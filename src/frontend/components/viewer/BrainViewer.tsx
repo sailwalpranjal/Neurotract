@@ -1,13 +1,12 @@
 'use client';
 
-import { useRef, useEffect, useState, Suspense } from 'react';
+import { useRef, useEffect, useState, Suspense, useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, Stats } from '@react-three/drei';
 import { useAppStore } from '@/lib/store';
 import StreamlineRenderer from './StreamlineRenderer';
 import SliceViewer from './SliceViewer';
 import BrainSurface from './BrainSurface';
-import BrainModel from './BrainModel';
 import ViewPresets from './ViewPresets';
 import AnatomicalLabels from './AnatomicalLabels';
 import ConnectomeGraph3D from './ConnectomeGraph3D';
@@ -21,7 +20,7 @@ function LoadingFallback() {
   return (
     <mesh>
       <sphereGeometry args={[20, 16, 16]} />
-      <meshBasicMaterial color="#4a9eff" wireframe transparent opacity={0.3} />
+      <meshBasicMaterial color="#10b981" wireframe transparent opacity={0.3} />
     </mesh>
   );
 }
@@ -33,6 +32,12 @@ export default function BrainViewer({ onError }: BrainViewerProps) {
     brainMesh,
     connectome,
     parcellationLabels,
+    hoveredEdge,
+    selectedEdge,
+    hoveredRegion,
+    selectedRegion,
+    setSelectedRegion,
+    setSelectedEdge,
   } = useAppStore();
   const controlsRef = useRef<any>(null);
   const [showStats, setShowStats] = useState(false);
@@ -65,6 +70,11 @@ export default function BrainViewer({ onError }: BrainViewerProps) {
             showLabels: !viewerSettings.showLabels,
           });
           break;
+        case 'c':
+          useAppStore.getState().updateViewerSettings({
+            showConnectomeGraph: !viewerSettings.showConnectomeGraph,
+          });
+          break;
         case 'g':
           setShowStats(!showStats);
           break;
@@ -83,30 +93,34 @@ export default function BrainViewer({ onError }: BrainViewerProps) {
             brainSurfaceWireframe: !viewerSettings.brainSurfaceWireframe,
           });
           break;
-        case '1':
-          useAppStore.getState().updateViewerSettings({ brainModelType: 'hologram' });
-          break;
-        case '2':
-          useAppStore.getState().updateViewerSettings({ brainModelType: 'point_cloud' });
-          break;
-        case '3':
-          useAppStore.getState().updateViewerSettings({ brainModelType: 'marching_cubes' });
-          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewerSettings.showSlices, viewerSettings.showBrainSurface, viewerSettings.showLabels, showStats, viewerSettings.showStreamlines, viewerSettings.autoRotate, viewerSettings.brainSurfaceWireframe]);
+  }, [viewerSettings, showStats]);
+
+  // Active region inspector details
+  const activeRegionIndex = selectedRegion !== null ? selectedRegion : hoveredRegion;
+  const activeRegionLabel = useMemo(() => {
+    if (activeRegionIndex === null || !parcellationLabels) return null;
+    return parcellationLabels[activeRegionIndex] || null;
+  }, [activeRegionIndex, parcellationLabels]);
+
+  const activeRegionDegree = useMemo(() => {
+    if (activeRegionIndex === null || !connectome || !connectome[activeRegionIndex]) return 0;
+    return connectome[activeRegionIndex].filter((w) => w > 0).length;
+  }, [activeRegionIndex, connectome]);
+
+  const activeEdgeInfo = selectedEdge || hoveredEdge;
 
   if (glError) {
     return (
       <div className="w-full h-full flex items-center justify-center">
-        <div className="glass rounded-xl p-8 max-w-md text-center">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 max-w-md text-center">
           <h3 className="text-xl font-semibold text-red-400 mb-3">WebGL Error</h3>
-          <p className="text-gray-300 text-sm mb-4">{glError}</p>
-          <button onClick={() => setGlError(null)} className="px-4 py-2 bg-primary-600 hover:bg-primary-700 rounded-lg text-sm transition-colors">
+          <p className="text-slate-300 text-sm mb-4">{glError}</p>
+          <button onClick={() => setGlError(null)} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition-colors">
             Retry
           </button>
         </div>
@@ -115,7 +129,7 @@ export default function BrainViewer({ onError }: BrainViewerProps) {
   }
 
   return (
-    <div className="w-full h-full relative canvas-container">
+    <div className="w-full h-full relative canvas-container bg-slate-950">
       <Canvas
         dpr={[1, 1.5]}
         gl={{
@@ -125,14 +139,14 @@ export default function BrainViewer({ onError }: BrainViewerProps) {
           failIfMajorPerformanceCaveat: false,
         }}
         onCreated={({ gl }) => {
-          gl.setClearColor(new THREE.Color(viewerSettings.backgroundColor));
+          gl.setClearColor(new THREE.Color(viewerSettings.backgroundColor || '#090d16'));
           gl.toneMapping = THREE.ACESFilmicToneMapping;
           gl.toneMappingExposure = 1.2;
           const canvas = gl.domElement;
           canvas.addEventListener('webglcontextlost', (e) => {
             e.preventDefault();
             console.warn('WebGL context lost - will attempt restore');
-            setGlError('WebGL context was lost. This may happen with large models. Click Retry to reload.');
+            setGlError('WebGL context was lost. Click Retry to reload.');
           });
           canvas.addEventListener('webglcontextrestored', () => {
             console.info('WebGL context restored');
@@ -149,14 +163,14 @@ export default function BrainViewer({ onError }: BrainViewerProps) {
           far={10000}
         />
 
-        {/* Enhanced Lighting */}
-        <ambientLight intensity={0.35} />
-        <hemisphereLight args={['#b1e1ff', '#b97a20', 0.5]} />
+        {/* Enhanced Scientific Lighting */}
+        <ambientLight intensity={0.4} />
+        <hemisphereLight args={['#b1e1ff', '#1e293b', 0.6]} />
         <directionalLight position={[100, 100, 50]} intensity={0.9} castShadow />
         <directionalLight position={[-100, -50, -50]} intensity={0.3} />
         <directionalLight position={[0, 100, -100]} intensity={0.2} />
         <pointLight position={[0, 0, 150]} intensity={0.4} color="#88ccff" />
-        <pointLight position={[0, -100, 0]} intensity={0.15} color="#ff8866" />
+        <pointLight position={[0, -100, 0]} intensity={0.15} color="#34d399" />
 
         {/* Controls */}
         <OrbitControls
@@ -175,22 +189,12 @@ export default function BrainViewer({ onError }: BrainViewerProps) {
 
         {/* Scene Content */}
         <Suspense fallback={<LoadingFallback />}>
-          {/* Brain Surface - GLB models or marching cubes */}
-          {viewerSettings.showBrainSurface && (
-            <>
-              {viewerSettings.brainModelType === 'marching_cubes' && brainMesh && (
-                <BrainSurface mesh={brainMesh} settings={viewerSettings} />
-              )}
-              {viewerSettings.brainModelType === 'hologram' && (
-                <BrainModel modelType="hologram" settings={viewerSettings} streamlineBounds={streamlineBundle?.bounds} />
-              )}
-              {viewerSettings.brainModelType === 'point_cloud' && (
-                <BrainModel modelType="point_cloud" settings={viewerSettings} streamlineBounds={streamlineBundle?.bounds} />
-              )}
-            </>
+          {/* Strictly Subject-Derived Brain Surface (Marching Cubes) */}
+          {viewerSettings.showBrainSurface && brainMesh && (
+            <BrainSurface mesh={brainMesh} settings={viewerSettings} />
           )}
 
-          {/* Streamlines */}
+          {/* Real Reconstructed Tractography Streamlines */}
           {viewerSettings.showStreamlines && streamlineBundle && (
             <StreamlineRenderer
               bundle={streamlineBundle}
@@ -198,7 +202,7 @@ export default function BrainViewer({ onError }: BrainViewerProps) {
             />
           )}
 
-          {/* 3D Connectome Graph Layer */}
+          {/* 3D Connectome Graph Layer (Nodes & Weighted Edges) */}
           {viewerSettings.showConnectomeGraph && connectome && parcellationLabels.length > 0 && (
             <ConnectomeGraph3D
               connectome={connectome}
@@ -210,10 +214,10 @@ export default function BrainViewer({ onError }: BrainViewerProps) {
           {/* Anatomical Labels */}
           {viewerSettings.showLabels && <AnatomicalLabels />}
 
-          {/* Slices */}
+          {/* In-scene Orthogonal Slices */}
           {viewerSettings.showSlices && <SliceViewer />}
 
-          {/* Coordinate Axes */}
+          {/* Coordinate Axes in RAS+ mm */}
           <axesHelper args={[50]} />
         </Suspense>
 
@@ -224,49 +228,121 @@ export default function BrainViewer({ onError }: BrainViewerProps) {
       {/* View Presets Toolbar */}
       <ViewPresets controlsRef={controlsRef} />
 
-      {/* Model Indicator */}
-      <div className="absolute top-4 right-4 glass rounded-lg px-3 py-2 text-xs text-gray-300">
-        <span className="text-primary-400 font-medium">
-          {viewerSettings.brainModelType === 'hologram' ? 'Hologram' :
-           viewerSettings.brainModelType === 'point_cloud' ? 'Point Cloud' : 'MRI Mesh'}
-        </span>
-        {viewerSettings.autoRotate && <span className="ml-2 text-cyan-400">Rotating</span>}
+      {/* Model & Provenance Indicator */}
+      <div className="absolute top-4 right-4 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 shadow-lg space-y-0.5">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+          <span className="font-semibold text-white">Subject Laboratory</span>
+          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800/60">
+            RAS+ mm
+          </span>
+        </div>
+        <p className="text-[10px] text-slate-400">
+          Marching Cubes Surface • Probabilistic Tracts • Desikan 89
+        </p>
       </div>
 
-      {/* Info Overlay */}
-      <div className="absolute top-4 left-4 glass rounded-lg p-3 text-sm max-w-xs">
-        <p className="font-semibold mb-1">Scene Info</p>
+      {/* Real Scene Info Overlay */}
+      <div className="absolute top-4 left-4 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-lg p-3 text-xs max-w-xs shadow-lg space-y-1">
+        <p className="font-semibold text-slate-100 flex items-center justify-between">
+          <span>Scene Telemetry</span>
+          <span className="text-[10px] font-mono text-slate-500">Real dMRI</span>
+        </p>
         {streamlineBundle ? (
-          <>
-            <p className="text-gray-300">
-              Streamlines: {streamlineBundle.metadata.count.toLocaleString()}
+          <div className="space-y-0.5 text-slate-300 font-mono text-[11px]">
+            <div>
+              Tracts:{' '}
+              <span className="text-cyan-300 font-semibold">
+                {streamlineBundle.metadata.count.toLocaleString()}
+              </span>
               {streamlineBundle.metadata.totalInFile && (
-                <span className="text-gray-500"> / {streamlineBundle.metadata.totalInFile.toLocaleString()}</span>
+                <span className="text-slate-500"> / {streamlineBundle.metadata.totalInFile.toLocaleString()}</span>
               )}
-            </p>
-            <p className="text-gray-300">
-              Points: {streamlineBundle.metadata.totalPoints.toLocaleString()}
-            </p>
-            <p className="text-gray-300">
-              Mean Length: {streamlineBundle.metadata.meanLength.toFixed(1)} mm
-            </p>
-          </>
+            </div>
+            <div>
+              Mean Length:{' '}
+              <span className="text-slate-200">
+                {streamlineBundle.metadata.meanLength.toFixed(1)} mm
+              </span>
+            </div>
+          </div>
         ) : (
-          <p className="text-gray-400">No streamline data</p>
+          <p className="text-slate-500">No streamline data loaded</p>
         )}
         {brainMesh && (
-          <p className="text-gray-300 mt-1">
-            MRI Mesh: {brainMesh.metadata.n_vertices.toLocaleString()} vertices
-          </p>
+          <div className="text-[11px] font-mono text-slate-400 pt-1 border-t border-slate-800">
+            Surface Mesh: {brainMesh.metadata.n_vertices.toLocaleString()} vertices
+          </div>
+        )}
+        {connectome && (
+          <div className="text-[11px] font-mono text-emerald-400">
+            Connectome: {connectome.length} parcels
+          </div>
         )}
       </div>
 
-      {/* Controls Help */}
-      <div className="absolute bottom-4 right-4 glass rounded-lg p-3 text-xs text-gray-400 hidden md:block">
+      {/* Floating 3D Interactive Inspector (When parcel or edge is hovered/selected) */}
+      {(activeRegionLabel || activeEdgeInfo) && (
+        <div className="absolute bottom-16 left-4 bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl p-3.5 shadow-2xl text-xs font-mono max-w-sm transition-all z-20">
+          {activeRegionLabel && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider">
+                  {selectedRegion !== null ? 'Selected Parcel' : 'Hovered Parcel'}
+                </span>
+                <button
+                  onClick={() => setSelectedRegion(null)}
+                  className="text-[10px] text-slate-500 hover:text-slate-300"
+                >
+                  close
+                </button>
+              </div>
+              <h4 className="font-semibold text-cyan-300 text-sm">{activeRegionLabel.name}</h4>
+              <div className="text-slate-300 text-[11px] space-y-0.5">
+                <div>
+                  Lobe: <span className="text-white capitalize">{activeRegionLabel.lobe}</span> • Hemi:{' '}
+                  <span className="text-white capitalize">{activeRegionLabel.hemisphere}</span>
+                </div>
+                <div>
+                  Centroid: [{activeRegionLabel.centroid?.map((c) => c.toFixed(1)).join(', ')}] mm
+                </div>
+                <div>
+                  Structural Degree: <span className="text-emerald-400 font-bold">{activeRegionDegree}</span> connections
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeEdgeInfo && !activeRegionLabel && (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider">Structural Tract Connection</span>
+                <button
+                  onClick={() => setSelectedEdge(null)}
+                  className="text-[10px] text-slate-500 hover:text-slate-300"
+                >
+                  close
+                </button>
+              </div>
+              <div className="text-slate-200 font-medium">
+                {parcellationLabels[activeEdgeInfo.source]?.name || `Node ${activeEdgeInfo.source}`}
+                <span className="text-slate-500 mx-1.5">↔</span>
+                {parcellationLabels[activeEdgeInfo.target]?.name || `Node ${activeEdgeInfo.target}`}
+              </div>
+              <div className="text-[11px] text-emerald-400 font-semibold">
+                Weight: {activeEdgeInfo.weight.toFixed(0)} reconstructed streamlines
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Keyboard Shortcuts Bar */}
+      <div className="absolute bottom-4 right-4 bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-400 hidden md:block shadow-lg">
         <p>LMB: Rotate | RMB: Pan | Scroll: Zoom</p>
-        <p>&apos;R&apos; Reset | &apos;B&apos; Brain | &apos;T&apos; Tracts | &apos;L&apos; Labels</p>
-        <p>&apos;A&apos; Auto-Rotate | &apos;W&apos; Wireframe | &apos;1/2/3&apos; Models</p>
+        <p>&apos;R&apos; Reset | &apos;B&apos; Brain Mesh | &apos;T&apos; Tracts | &apos;C&apos; Connectome | &apos;L&apos; Labels | &apos;A&apos; Auto-Rotate</p>
       </div>
     </div>
   );
 }
+

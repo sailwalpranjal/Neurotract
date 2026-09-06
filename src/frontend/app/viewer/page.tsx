@@ -75,10 +75,12 @@ export default function ViewerPage() {
     });
 
     try {
-      // Load streamlines and brain mesh in parallel
-      const [streamlineData, meshData] = await Promise.all([
+      // Load streamlines, brain mesh, connectome, and labels in parallel
+      const [streamlineData, meshData, connectomeData, labelsData] = await Promise.all([
         streamlineBundle ? Promise.resolve(null) : apiClient.getResultStreamlines(subjectToLoad).catch(() => null),
         brainMesh ? Promise.resolve(null) : apiClient.getBrainMesh(subjectToLoad).catch(() => null),
+        useAppStore.getState().connectome ? Promise.resolve(null) : apiClient.getResultConnectome(subjectToLoad).catch(() => null),
+        useAppStore.getState().parcellationLabels.length > 0 ? Promise.resolve(null) : apiClient.getParcellationLabels(subjectToLoad).catch(() => null),
       ]);
 
       if (streamlineData) {
@@ -103,16 +105,25 @@ export default function ViewerPage() {
         setBrainMesh(meshData);
       }
 
+      if (connectomeData) {
+        useAppStore.getState().setConnectome(connectomeData);
+      }
+
+      if (labelsData?.labels) {
+        useAppStore.getState().setParcellationLabels(labelsData.labels);
+      }
+
       useAppStore.getState().removeNotification(notifId);
       const parts: string[] = [];
       if (streamlineData) parts.push(`${streamlineData.metadata.count.toLocaleString()} streamlines`);
-      if (meshData) parts.push(`brain mesh (${meshData.metadata?.n_vertices?.toLocaleString() || '?'} vertices)`);
+      if (meshData) parts.push(`brain surface (${meshData.metadata?.n_vertices?.toLocaleString() || '?'} vertices)`);
+      if (connectomeData) parts.push(`3D connectome`);
 
       addNotification({
         type: 'success',
-        title: 'Viewer Data Loaded',
-        message: parts.length > 0 ? parts.join(' + ') : 'Using cached data',
-        duration: 5000,
+        title: 'Subject 3D Laboratory Loaded',
+        message: parts.length > 0 ? parts.join(' • ') : 'Using cached scientific data',
+        duration: 4000,
       });
     } catch (err: any) {
       useAppStore.getState().removeNotification(notifId);

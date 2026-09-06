@@ -27,33 +27,22 @@ export default function Controls() {
 
         {viewerSettings.showBrainSurface && (
           <>
-            {/* Model Type Selector */}
-            <div className="mt-3">
-              <label className="block text-sm font-medium mb-2">Model Type</label>
-              <div className="space-y-1.5">
-                {BRAIN_MODEL_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => updateViewerSettings({ brainModelType: opt.value })}
-                    disabled={opt.value === 'marching_cubes' && !brainMesh}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                      viewerSettings.brainModelType === opt.value
-                        ? 'bg-primary-600/40 border border-primary-500/50 text-white'
-                        : opt.value === 'marching_cubes' && !brainMesh
-                        ? 'bg-white/5 border border-white/5 text-gray-500 cursor-not-allowed'
-                        : 'bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{opt.label}</span>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-white/10 text-neutral-300">
-                        {opt.provenance}
-                      </span>
-                    </div>
-                    <span className="block text-xs text-gray-400 mt-0.5">{opt.desc}</span>
-                  </button>
-                ))}
+            {/* Subject-Derived Surface Details */}
+            <div className="mt-3 p-2.5 rounded-lg bg-slate-900 border border-slate-800 space-y-1 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-slate-200">Subject Cortical Surface</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">
+                  SUBJECT-DERIVED
+                </span>
               </div>
+              <p className="text-[11px] text-slate-400">
+                Isosurface extracted via Marching Cubes from skull-stripped intracranial brain mask.
+              </p>
+              {brainMesh && (
+                <div className="text-[10px] font-mono text-slate-500 pt-1 border-t border-slate-800/80">
+                  {brainMesh.metadata.n_vertices?.toLocaleString()} vertices • {brainMesh.metadata.n_faces?.toLocaleString()} faces
+                </div>
+              )}
             </div>
 
             {/* Opacity */}
